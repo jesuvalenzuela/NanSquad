@@ -1,0 +1,7 @@
+python: 3.10.18 (main, Jul 24 2025, 11:15:56) [Clang 16.0.0 (clang-1600.0.26.6)]
+optuna: 4.5.0
+mlflow: 3.5.0
+xgboost: 3.0.5
+pandas: 2.1.4
+matplotlib: 3.7.5
+sklearn: sklearn

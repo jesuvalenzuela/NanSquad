@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jesu/Desktop/WORK/lab-programacion-cientifica/NanSquad/Lab8/mlruns/665168809808650765/86b379ec5191436d9864e7aae2747692/artifacts
+end_time: 1760720589593
+entry_point_name: ''
+experiment_id: '665168809808650765'
+lifecycle_stage: active
+run_id: 86b379ec5191436d9864e7aae2747692
+run_name: XGBoost_lr0.233_depth9_n268
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760720584485
+status: 3
+tags: []
+user_id: jesu
