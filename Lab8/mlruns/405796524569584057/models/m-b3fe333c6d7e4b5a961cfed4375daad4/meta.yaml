@@ -1,0 +1,10 @@
+artifact_location: file:///Users/matizun/NanSquad/Lab8/mlruns/405796524569584057/models/m-b3fe333c6d7e4b5a961cfed4375daad4/artifacts
+creation_timestamp: 1760974193371
+experiment_id: '405796524569584057'
+last_updated_timestamp: 1760974194507
+model_id: m-b3fe333c6d7e4b5a961cfed4375daad4
+model_type: null
+name: model
+source_run_id: 15c08a3c035c459684da70979accd567
+status: 2
+status_message: null
