@@ -1,0 +1,10 @@
+artifact_location: file:///Users/jesu/Desktop/WORK/lab-programacion-cientifica/NanSquad/Lab8/mlruns/927507649667432178/models/m-3677a0e1850f4d9bb87ef5143941a16e/artifacts
+creation_timestamp: 1760720727124
+experiment_id: '927507649667432178'
+last_updated_timestamp: 1760720731361
+model_id: m-3677a0e1850f4d9bb87ef5143941a16e
+model_type: null
+name: model
+source_run_id: fed35563729047cbb7a016d52b6c6ac6
+status: 2
+status_message: null
