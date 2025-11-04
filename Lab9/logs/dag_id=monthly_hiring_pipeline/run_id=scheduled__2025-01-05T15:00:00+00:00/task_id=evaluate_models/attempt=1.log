@@ -1,0 +1,22 @@
+[2025-11-04T20:14:15.477+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-11-04T20:14:15.495+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.evaluate_models scheduled__2025-01-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:14:15.507+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.evaluate_models scheduled__2025-01-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:14:15.508+0000] {taskinstance.py:2866} INFO - Starting attempt 1 of 1
+[2025-11-04T20:14:15.528+0000] {taskinstance.py:2889} INFO - Executing <Task(PythonOperator): evaluate_models> on 2025-01-05 15:00:00+00:00
+[2025-11-04T20:14:15.537+0000] {standard_task_runner.py:72} INFO - Started process 6465 to run task
+[2025-11-04T20:14:15.544+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'monthly_hiring_pipeline', 'evaluate_models', 'scheduled__2025-01-05T15:00:00+00:00', '--job-id', '105', '--raw', '--subdir', 'DAGS_FOLDER/dag_dynamic.py', '--cfg-path', '/tmp/tmpy0w4tie1']
+[2025-11-04T20:14:15.548+0000] {standard_task_runner.py:105} INFO - Job 105: Subtask evaluate_models
+[2025-11-04T20:14:15.615+0000] {task_command.py:467} INFO - Running <TaskInstance: monthly_hiring_pipeline.evaluate_models scheduled__2025-01-05T15:00:00+00:00 [running]> on host 94ae2b4d245a
+[2025-11-04T20:14:15.826+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='monthly_hiring_pipeline' AIRFLOW_CTX_TASK_ID='evaluate_models' AIRFLOW_CTX_EXECUTION_DATE='2025-01-05T15:00:00+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='scheduled__2025-01-05T15:00:00+00:00'
+[2025-11-04T20:14:15.829+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-11-04T20:14:16.036+0000] {logging_mixin.py:190} INFO - Accuracy random_forest_model.joblib: 0.9267
+[2025-11-04T20:14:16.073+0000] {logging_mixin.py:190} INFO - Accuracy gradient_boosting_model.joblib: 0.9300
+[2025-11-04T20:14:16.103+0000] {logging_mixin.py:190} INFO - Accuracy logistic_regression_model.joblib: 0.9033
+[2025-11-04T20:14:16.147+0000] {logging_mixin.py:190} INFO - Mejor modelo: gradient_boosting_model.joblib
+[2025-11-04T20:14:16.150+0000] {logging_mixin.py:190} INFO - Accuracy: 0.9300
+[2025-11-04T20:14:16.152+0000] {python.py:240} INFO - Done. Returned value was: None
+[2025-11-04T20:14:16.174+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-11-04T20:14:16.176+0000] {taskinstance.py:352} INFO - Marking task as SUCCESS. dag_id=monthly_hiring_pipeline, task_id=evaluate_models, run_id=scheduled__2025-01-05T15:00:00+00:00, execution_date=20250105T150000, start_date=20251104T201415, end_date=20251104T201416
+[2025-11-04T20:14:16.224+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2025-11-04T20:14:16.263+0000] {taskinstance.py:3895} INFO - 0 downstream tasks scheduled from follow-on schedule check
+[2025-11-04T20:14:16.267+0000] {local_task_job_runner.py:245} INFO - ::endgroup::

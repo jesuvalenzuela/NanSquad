@@ -1,0 +1,23 @@
+[2025-11-04T20:08:30.749+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-11-04T20:08:30.769+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.download_data_1_only scheduled__2024-10-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:08:30.781+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.download_data_1_only scheduled__2024-10-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:08:30.782+0000] {taskinstance.py:2866} INFO - Starting attempt 1 of 1
+[2025-11-04T20:08:30.799+0000] {taskinstance.py:2889} INFO - Executing <Task(BashOperator): download_data_1_only> on 2024-10-05 15:00:00+00:00
+[2025-11-04T20:08:30.808+0000] {standard_task_runner.py:72} INFO - Started process 5356 to run task
+[2025-11-04T20:08:30.813+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'monthly_hiring_pipeline', 'download_data_1_only', 'scheduled__2024-10-05T15:00:00+00:00', '--job-id', '53', '--raw', '--subdir', 'DAGS_FOLDER/dag_dynamic.py', '--cfg-path', '/tmp/tmpdjc627og']
+[2025-11-04T20:08:30.817+0000] {standard_task_runner.py:105} INFO - Job 53: Subtask download_data_1_only
+[2025-11-04T20:08:30.880+0000] {task_command.py:467} INFO - Running <TaskInstance: monthly_hiring_pipeline.download_data_1_only scheduled__2024-10-05T15:00:00+00:00 [running]> on host 94ae2b4d245a
+[2025-11-04T20:08:30.963+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='monthly_hiring_pipeline' AIRFLOW_CTX_TASK_ID='download_data_1_only' AIRFLOW_CTX_EXECUTION_DATE='2024-10-05T15:00:00+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='scheduled__2024-10-05T15:00:00+00:00'
+[2025-11-04T20:08:30.965+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-11-04T20:08:30.980+0000] {subprocess.py:78} INFO - Tmp dir root location: /tmp
+[2025-11-04T20:08:30.982+0000] {subprocess.py:88} INFO - Running command: ['/usr/bin/bash', '-c', 'curl -o /opt/airflow/dags/2024-10-05/raw/data_1.csv https://gitlab.com/eduardomoyab/laboratorio-13/-/raw/main/files/data_1.csv']
+[2025-11-04T20:08:31.000+0000] {subprocess.py:99} INFO - Output:
+[2025-11-04T20:08:31.013+0000] {subprocess.py:106} INFO -   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+[2025-11-04T20:08:31.014+0000] {subprocess.py:106} INFO -                                  Dload  Upload   Total   Spent    Left  Speed
+[2025-11-04T20:08:31.457+0000] {subprocess.py:106} INFO -   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 32735  100 32735    0     0  73725      0 --:--:-- --:--:-- --:--:-- 73893
+[2025-11-04T20:08:31.465+0000] {subprocess.py:110} INFO - Command exited with return code 0
+[2025-11-04T20:08:31.499+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-11-04T20:08:31.501+0000] {taskinstance.py:352} INFO - Marking task as SUCCESS. dag_id=monthly_hiring_pipeline, task_id=download_data_1_only, run_id=scheduled__2024-10-05T15:00:00+00:00, execution_date=20241005T150000, start_date=20251104T200830, end_date=20251104T200831
+[2025-11-04T20:08:31.576+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2025-11-04T20:08:31.619+0000] {taskinstance.py:3895} INFO - 1 downstream tasks scheduled from follow-on schedule check
+[2025-11-04T20:08:31.624+0000] {local_task_job_runner.py:245} INFO - ::endgroup::

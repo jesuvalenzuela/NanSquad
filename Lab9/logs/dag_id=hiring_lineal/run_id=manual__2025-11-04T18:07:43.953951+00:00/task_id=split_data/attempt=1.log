@@ -1,0 +1,153 @@
+[2025-11-04T18:08:23.144+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-11-04T18:08:23.167+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: hiring_lineal.split_data manual__2025-11-04T18:07:43.953951+00:00 [queued]>
+[2025-11-04T18:08:23.182+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: hiring_lineal.split_data manual__2025-11-04T18:07:43.953951+00:00 [queued]>
+[2025-11-04T18:08:23.183+0000] {taskinstance.py:2866} INFO - Starting attempt 1 of 1
+[2025-11-04T18:08:23.207+0000] {taskinstance.py:2889} INFO - Executing <Task(PythonOperator): split_data> on 2025-11-04 18:07:43.953951+00:00
+[2025-11-04T18:08:23.254+0000] {standard_task_runner.py:72} INFO - Started process 363 to run task
+[2025-11-04T18:08:23.260+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'hiring_lineal', 'split_data', 'manual__2025-11-04T18:07:43.953951+00:00', '--job-id', '7', '--raw', '--subdir', 'DAGS_FOLDER/dag_lineal.py', '--cfg-path', '/tmp/tmpnoa_7924']
+[2025-11-04T18:08:23.268+0000] {standard_task_runner.py:105} INFO - Job 7: Subtask split_data
+[2025-11-04T18:08:23.874+0000] {task_command.py:467} INFO - Running <TaskInstance: hiring_lineal.split_data manual__2025-11-04T18:07:43.953951+00:00 [running]> on host 94ae2b4d245a
+[2025-11-04T18:08:24.217+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='hiring_lineal' AIRFLOW_CTX_TASK_ID='split_data' AIRFLOW_CTX_EXECUTION_DATE='2025-11-04T18:07:43.953951+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='manual__2025-11-04T18:07:43.953951+00:00'
+[2025-11-04T18:08:24.222+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-11-04T18:08:24.684+0000] {python.py:240} INFO - Done. Returned value was: (     Age  Gender  ...  PersonalityScore  RecruitmentStrategy
+74    27       1  ...                92                    3
+5     47       1  ...                70                    2
+418   22       0  ...                43                    2
+411   43       1  ...                55                    1
+571   29       1  ...                 8                    2
+..   ...     ...  ...               ...                  ...
+713   27       0  ...                78                    1
+619   50       1  ...                39                    3
+55    24       1  ...                56                    2
+362   21       1  ...                45                    1
+740   49       0  ...                70                    2
+
+[600 rows x 10 columns],      Age  Gender  ...  PersonalityScore  RecruitmentStrategy
+245   42       1  ...                98                    2
+742   33       0  ...                14                    3
+620   26       0  ...                73                    2
+523   48       1  ...                88                    3
+344   21       0  ...                20                    2
+..   ...     ...  ...               ...                  ...
+617   24       1  ...                 1                    2
+47    45       1  ...                27                    3
+504   35       1  ...                88                    1
+493   48       1  ...                82                    2
+346   28       0  ...                18                    2
+
+[150 rows x 10 columns], 74     1
+5      0
+418    0
+411    0
+571    0
+      ..
+713    1
+619    0
+55     0
+362    0
+740    0
+Name: HiringDecision, Length: 600, dtype: int64, 245    1
+742    0
+620    0
+523    0
+344    0
+      ..
+617    0
+47     0
+504    1
+493    0
+346    0
+Name: HiringDecision, Length: 150, dtype: int64)
+[2025-11-04T18:08:24.945+0000] {taskinstance.py:3311} ERROR - Task failed with exception
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/taskinstance.py", line 789, in _execute_task
+    task_instance.xcom_push(key=XCOM_RETURN_KEY, value=xcom_value, session=session_or_null)
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/session.py", line 94, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/taskinstance.py", line 3639, in xcom_push
+    XCom.set(
+  File "/usr/local/lib/python3.10/site-packages/airflow/api_internal/internal_api_call.py", line 166, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/session.py", line 94, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/xcom.py", line 249, in set
+    value = cls.serialize_value(
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/xcom.py", line 688, in serialize_value
+    return json.dumps(value, cls=XComEncoder).encode("UTF-8")
+  File "/usr/local/lib/python3.10/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/json.py", line 103, in encode
+    o = self.default(o)
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/json.py", line 92, in default
+    return serialize(o)
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serde.py", line 151, in serialize
+    return encode(classname or serialized_classname, version, serialize(data, depth + 1))
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serde.py", line 128, in serialize
+    return [serialize(d, depth + 1) for d in o]
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serde.py", line 128, in <listcomp>
+    return [serialize(d, depth + 1) for d in o]
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serde.py", line 149, in serialize
+    data, serialized_classname, version, is_serialized = _serializers[qn].serialize(o)
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serializers/pandas.py", line 40, in serialize
+    import pyarrow as pa
+ModuleNotFoundError: No module named 'pyarrow'
+[2025-11-04T18:08:25.015+0000] {taskinstance.py:1225} INFO - Marking task as FAILED. dag_id=hiring_lineal, task_id=split_data, run_id=manual__2025-11-04T18:07:43.953951+00:00, execution_date=20251104T180743, start_date=20251104T180823, end_date=20251104T180825
+[2025-11-04T18:08:25.055+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-11-04T18:08:25.057+0000] {standard_task_runner.py:124} ERROR - Failed to execute job 7 for task split_data (No module named 'pyarrow'; 363)
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/site-packages/airflow/task/task_runner/standard_task_runner.py", line 117, in _start_by_fork
+    ret = args.func(args, dag=self.dag)
+  File "/usr/local/lib/python3.10/site-packages/airflow/cli/cli_config.py", line 49, in command
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/cli.py", line 116, in wrapper
+    return f(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/airflow/cli/commands/task_command.py", line 483, in task_run
+    task_return_code = _run_task_by_selected_method(args, _dag, ti)
+  File "/usr/local/lib/python3.10/site-packages/airflow/cli/commands/task_command.py", line 256, in _run_task_by_selected_method
+    return _run_raw_task(args, ti)
+  File "/usr/local/lib/python3.10/site-packages/airflow/cli/commands/task_command.py", line 341, in _run_raw_task
+    return ti._run_raw_task(
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/session.py", line 97, in wrapper
+    return func(*args, session=session, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/taskinstance.py", line 3005, in _run_raw_task
+    return _run_raw_task(
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/taskinstance.py", line 273, in _run_raw_task
+    TaskInstance._execute_task_with_callbacks(
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/taskinstance.py", line 3159, in _execute_task_with_callbacks
+    result = self._execute_task(context, task_orig)
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/taskinstance.py", line 3183, in _execute_task
+    return _execute_task(self, context, task_orig)
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/taskinstance.py", line 789, in _execute_task
+    task_instance.xcom_push(key=XCOM_RETURN_KEY, value=xcom_value, session=session_or_null)
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/session.py", line 94, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/taskinstance.py", line 3639, in xcom_push
+    XCom.set(
+  File "/usr/local/lib/python3.10/site-packages/airflow/api_internal/internal_api_call.py", line 166, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/session.py", line 94, in wrapper
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/xcom.py", line 249, in set
+    value = cls.serialize_value(
+  File "/usr/local/lib/python3.10/site-packages/airflow/models/xcom.py", line 688, in serialize_value
+    return json.dumps(value, cls=XComEncoder).encode("UTF-8")
+  File "/usr/local/lib/python3.10/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/json.py", line 103, in encode
+    o = self.default(o)
+  File "/usr/local/lib/python3.10/site-packages/airflow/utils/json.py", line 92, in default
+    return serialize(o)
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serde.py", line 151, in serialize
+    return encode(classname or serialized_classname, version, serialize(data, depth + 1))
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serde.py", line 128, in serialize
+    return [serialize(d, depth + 1) for d in o]
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serde.py", line 128, in <listcomp>
+    return [serialize(d, depth + 1) for d in o]
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serde.py", line 149, in serialize
+    data, serialized_classname, version, is_serialized = _serializers[qn].serialize(o)
+  File "/usr/local/lib/python3.10/site-packages/airflow/serialization/serializers/pandas.py", line 40, in serialize
+    import pyarrow as pa
+ModuleNotFoundError: No module named 'pyarrow'
+[2025-11-04T18:08:25.113+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 1
+[2025-11-04T18:08:25.196+0000] {taskinstance.py:3895} INFO - 0 downstream tasks scheduled from follow-on schedule check
+[2025-11-04T18:08:25.222+0000] {local_task_job_runner.py:245} INFO - ::endgroup::

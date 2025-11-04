@@ -1,0 +1,17 @@
+[2025-11-04T20:10:18.191+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-11-04T20:10:18.207+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.train_random_forest scheduled__2024-10-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:10:18.217+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.train_random_forest scheduled__2024-10-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:10:18.218+0000] {taskinstance.py:2866} INFO - Starting attempt 1 of 1
+[2025-11-04T20:10:18.240+0000] {taskinstance.py:2889} INFO - Executing <Task(PythonOperator): train_random_forest> on 2024-10-05 15:00:00+00:00
+[2025-11-04T20:10:18.250+0000] {standard_task_runner.py:72} INFO - Started process 5685 to run task
+[2025-11-04T20:10:18.256+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'monthly_hiring_pipeline', 'train_random_forest', 'scheduled__2024-10-05T15:00:00+00:00', '--job-id', '68', '--raw', '--subdir', 'DAGS_FOLDER/dag_dynamic.py', '--cfg-path', '/tmp/tmp2rjzkwav']
+[2025-11-04T20:10:18.261+0000] {standard_task_runner.py:105} INFO - Job 68: Subtask train_random_forest
+[2025-11-04T20:10:18.328+0000] {task_command.py:467} INFO - Running <TaskInstance: monthly_hiring_pipeline.train_random_forest scheduled__2024-10-05T15:00:00+00:00 [running]> on host 94ae2b4d245a
+[2025-11-04T20:10:18.566+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='monthly_hiring_pipeline' AIRFLOW_CTX_TASK_ID='train_random_forest' AIRFLOW_CTX_EXECUTION_DATE='2024-10-05T15:00:00+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='scheduled__2024-10-05T15:00:00+00:00'
+[2025-11-04T20:10:18.570+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-11-04T20:10:19.189+0000] {python.py:240} INFO - Done. Returned value was: /opt/airflow/dags/2024-10-05/models/random_forest_model.joblib
+[2025-11-04T20:10:19.210+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-11-04T20:10:19.211+0000] {taskinstance.py:352} INFO - Marking task as SUCCESS. dag_id=monthly_hiring_pipeline, task_id=train_random_forest, run_id=scheduled__2024-10-05T15:00:00+00:00, execution_date=20241005T150000, start_date=20251104T201018, end_date=20251104T201019
+[2025-11-04T20:10:19.260+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2025-11-04T20:10:19.287+0000] {taskinstance.py:3895} INFO - 0 downstream tasks scheduled from follow-on schedule check
+[2025-11-04T20:10:19.289+0000] {local_task_job_runner.py:245} INFO - ::endgroup::
