@@ -1,15 +1,14 @@
 import os
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 
+from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
-from sklearn.model_selection import train_test_split
 
 import joblib
 
@@ -26,9 +25,7 @@ def create_folders(base_path ='', **kwargs):
     """
     # Obtener la fecha de ejecución desde el contexto de Airflow
     execution_date = kwargs['ds']
-
-    # Formatear la fecha como string (YYYY-MM-DD)
-    #execution_date = execution_date.strftime('%Y-%m-%d')
+    #execution_date = execution_date.strftime('%Y-%m-%d')       # Formatear la fecha como string (YYYY-MM-DD)
 
     # Crear la carpeta principal con la fecha
     main_folder = os.path.join(base_path, execution_date)
@@ -87,7 +84,7 @@ def split_data(execution_path,
     train_df.to_csv(os.path.join(splits_path, 'train.csv'), index=False)
     test_df.to_csv(os.path.join(splits_path, 'test.csv'), index=False)
 
-    return X_train, X_test, y_train, y_test
+    return splits_path
 
 
 # === 1.1.3. Preprocesamiento + entrenamiento + guardado del pipeline ===

@@ -9,7 +9,7 @@ from airflow.operators.empty import EmptyOperator
 from hiring_functions import create_folders, split_data, preprocess_and_train, gradio_interface
 
 # Ruta base para almacenar outputs
-BASE_PATH = ''      # Guardar directamente en dags
+BASE_PATH = '/opt/airflow/dags'      # Guardar en dags
 MODEL_NAME = "hiring_rf_pipeline"
 
 # 0. Inicializar un DAG con fecha de inicio el 1 de octubre de 2024, ejecución manual y **sin backfill**
