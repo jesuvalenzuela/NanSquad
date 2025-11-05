@@ -1,0 +1,17 @@
+[2025-11-04T18:17:10.417+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-11-04T18:17:10.461+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: hiring_lineal.create_folders manual__2025-11-04T18:07:43.953951+00:00 [queued]>
+[2025-11-04T18:17:10.481+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: hiring_lineal.create_folders manual__2025-11-04T18:07:43.953951+00:00 [queued]>
+[2025-11-04T18:17:10.483+0000] {taskinstance.py:2866} INFO - Starting attempt 2 of 2
+[2025-11-04T18:17:10.524+0000] {taskinstance.py:2889} INFO - Executing <Task(PythonOperator): create_folders> on 2025-11-04 18:07:43.953951+00:00
+[2025-11-04T18:17:10.575+0000] {standard_task_runner.py:72} INFO - Started process 683 to run task
+[2025-11-04T18:17:10.586+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'hiring_lineal', 'create_folders', 'manual__2025-11-04T18:07:43.953951+00:00', '--job-id', '13', '--raw', '--subdir', 'DAGS_FOLDER/dag_lineal.py', '--cfg-path', '/tmp/tmpyk6p6743']
+[2025-11-04T18:17:10.595+0000] {standard_task_runner.py:105} INFO - Job 13: Subtask create_folders
+[2025-11-04T18:17:10.697+0000] {task_command.py:467} INFO - Running <TaskInstance: hiring_lineal.create_folders manual__2025-11-04T18:07:43.953951+00:00 [running]> on host 94ae2b4d245a
+[2025-11-04T18:17:11.000+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='hiring_lineal' AIRFLOW_CTX_TASK_ID='create_folders' AIRFLOW_CTX_EXECUTION_DATE='2025-11-04T18:07:43.953951+00:00' AIRFLOW_CTX_TRY_NUMBER='2' AIRFLOW_CTX_DAG_RUN_ID='manual__2025-11-04T18:07:43.953951+00:00'
+[2025-11-04T18:17:11.004+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-11-04T18:17:11.052+0000] {python.py:240} INFO - Done. Returned value was: /opt/airflow/dags/2025-11-04
+[2025-11-04T18:17:11.095+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-11-04T18:17:11.097+0000] {taskinstance.py:352} INFO - Marking task as SUCCESS. dag_id=hiring_lineal, task_id=create_folders, run_id=manual__2025-11-04T18:07:43.953951+00:00, execution_date=20251104T180743, start_date=20251104T181710, end_date=20251104T181711
+[2025-11-04T18:17:11.159+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2025-11-04T18:17:11.269+0000] {taskinstance.py:3895} INFO - 1 downstream tasks scheduled from follow-on schedule check
+[2025-11-04T18:17:11.285+0000] {local_task_job_runner.py:245} INFO - ::endgroup::

@@ -1,0 +1,21 @@
+[2025-11-04T20:10:49.716+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-11-04T20:10:49.742+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.branching scheduled__2025-03-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:10:49.758+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.branching scheduled__2025-03-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:10:49.759+0000] {taskinstance.py:2866} INFO - Starting attempt 1 of 1
+[2025-11-04T20:10:49.787+0000] {taskinstance.py:2889} INFO - Executing <Task(BranchPythonOperator): branching> on 2025-03-05 15:00:00+00:00
+[2025-11-04T20:10:49.807+0000] {standard_task_runner.py:72} INFO - Started process 5780 to run task
+[2025-11-04T20:10:49.825+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'monthly_hiring_pipeline', 'branching', 'scheduled__2025-03-05T15:00:00+00:00', '--job-id', '72', '--raw', '--subdir', 'DAGS_FOLDER/dag_dynamic.py', '--cfg-path', '/tmp/tmpa4uss332']
+[2025-11-04T20:10:49.833+0000] {standard_task_runner.py:105} INFO - Job 72: Subtask branching
+[2025-11-04T20:10:49.920+0000] {task_command.py:467} INFO - Running <TaskInstance: monthly_hiring_pipeline.branching scheduled__2025-03-05T15:00:00+00:00 [running]> on host 94ae2b4d245a
+[2025-11-04T20:10:50.047+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='monthly_hiring_pipeline' AIRFLOW_CTX_TASK_ID='branching' AIRFLOW_CTX_EXECUTION_DATE='2025-03-05T15:00:00+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='scheduled__2025-03-05T15:00:00+00:00'
+[2025-11-04T20:10:50.050+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-11-04T20:10:50.085+0000] {baseoperator.py:416} WARNING - BranchPythonOperator.execute cannot be called outside TaskInstance!
+[2025-11-04T20:10:50.092+0000] {python.py:240} INFO - Done. Returned value was: download_both_data
+[2025-11-04T20:10:50.099+0000] {branch.py:38} INFO - Branch into download_both_data
+[2025-11-04T20:10:50.110+0000] {skipmixin.py:230} INFO - Following branch ('download_both_data',)
+[2025-11-04T20:10:50.206+0000] {skipmixin.py:278} INFO - Skipping tasks [('download_data_1_only', -1)]
+[2025-11-04T20:10:50.277+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-11-04T20:10:50.279+0000] {taskinstance.py:352} INFO - Marking task as SUCCESS. dag_id=monthly_hiring_pipeline, task_id=branching, run_id=scheduled__2025-03-05T15:00:00+00:00, execution_date=20250305T150000, start_date=20251104T201049, end_date=20251104T201050
+[2025-11-04T20:10:50.335+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2025-11-04T20:10:50.383+0000] {taskinstance.py:3895} INFO - 1 downstream tasks scheduled from follow-on schedule check
+[2025-11-04T20:10:50.391+0000] {local_task_job_runner.py:245} INFO - ::endgroup::
