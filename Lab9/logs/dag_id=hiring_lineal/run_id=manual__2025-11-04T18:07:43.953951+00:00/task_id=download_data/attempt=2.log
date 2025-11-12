@@ -1,0 +1,23 @@
+[2025-11-04T18:17:59.351+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-11-04T18:17:59.375+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: hiring_lineal.download_data manual__2025-11-04T18:07:43.953951+00:00 [queued]>
+[2025-11-04T18:17:59.402+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: hiring_lineal.download_data manual__2025-11-04T18:07:43.953951+00:00 [queued]>
+[2025-11-04T18:17:59.404+0000] {taskinstance.py:2866} INFO - Starting attempt 2 of 2
+[2025-11-04T18:17:59.447+0000] {taskinstance.py:2889} INFO - Executing <Task(BashOperator): download_data> on 2025-11-04 18:07:43.953951+00:00
+[2025-11-04T18:17:59.473+0000] {standard_task_runner.py:72} INFO - Started process 754 to run task
+[2025-11-04T18:17:59.483+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'hiring_lineal', 'download_data', 'manual__2025-11-04T18:07:43.953951+00:00', '--job-id', '16', '--raw', '--subdir', 'DAGS_FOLDER/dag_lineal.py', '--cfg-path', '/tmp/tmp8o51h26a']
+[2025-11-04T18:17:59.491+0000] {standard_task_runner.py:105} INFO - Job 16: Subtask download_data
+[2025-11-04T18:17:59.585+0000] {task_command.py:467} INFO - Running <TaskInstance: hiring_lineal.download_data manual__2025-11-04T18:07:43.953951+00:00 [running]> on host 94ae2b4d245a
+[2025-11-04T18:17:59.830+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='hiring_lineal' AIRFLOW_CTX_TASK_ID='download_data' AIRFLOW_CTX_EXECUTION_DATE='2025-11-04T18:07:43.953951+00:00' AIRFLOW_CTX_TRY_NUMBER='2' AIRFLOW_CTX_DAG_RUN_ID='manual__2025-11-04T18:07:43.953951+00:00'
+[2025-11-04T18:17:59.833+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-11-04T18:17:59.877+0000] {subprocess.py:78} INFO - Tmp dir root location: /tmp
+[2025-11-04T18:17:59.880+0000] {subprocess.py:88} INFO - Running command: ['/usr/bin/bash', '-c', 'curl -o /opt/airflow/dags/2025-11-04/raw/data_1.csv https://gitlab.com/eduardomoyab/laboratorio-13/-/raw/main/files/data_1.csv']
+[2025-11-04T18:17:59.946+0000] {subprocess.py:99} INFO - Output:
+[2025-11-04T18:17:59.978+0000] {subprocess.py:106} INFO -   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+[2025-11-04T18:17:59.981+0000] {subprocess.py:106} INFO -                                  Dload  Upload   Total   Spent    Left  Speed
+[2025-11-04T18:18:00.174+0000] {subprocess.py:106} INFO -   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 32735  100 32735    0     0   162k      0 --:--:-- --:--:-- --:--:--  163k
+[2025-11-04T18:18:00.181+0000] {subprocess.py:110} INFO - Command exited with return code 0
+[2025-11-04T18:18:00.240+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-11-04T18:18:00.242+0000] {taskinstance.py:352} INFO - Marking task as SUCCESS. dag_id=hiring_lineal, task_id=download_data, run_id=manual__2025-11-04T18:07:43.953951+00:00, execution_date=20251104T180743, start_date=20251104T181759, end_date=20251104T181800
+[2025-11-04T18:18:00.334+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2025-11-04T18:18:00.398+0000] {taskinstance.py:3895} INFO - 1 downstream tasks scheduled from follow-on schedule check
+[2025-11-04T18:18:00.408+0000] {local_task_job_runner.py:245} INFO - ::endgroup::

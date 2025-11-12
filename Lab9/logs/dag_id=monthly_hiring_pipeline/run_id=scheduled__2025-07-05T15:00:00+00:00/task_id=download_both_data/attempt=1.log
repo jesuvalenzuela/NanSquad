@@ -1,0 +1,26 @@
+[2025-11-04T20:16:10.101+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-11-04T20:16:10.125+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.download_both_data scheduled__2025-07-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:16:10.139+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.download_both_data scheduled__2025-07-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:16:10.140+0000] {taskinstance.py:2866} INFO - Starting attempt 1 of 1
+[2025-11-04T20:16:10.176+0000] {taskinstance.py:2889} INFO - Executing <Task(BashOperator): download_both_data> on 2025-07-05 15:00:00+00:00
+[2025-11-04T20:16:10.217+0000] {standard_task_runner.py:72} INFO - Started process 6853 to run task
+[2025-11-04T20:16:10.248+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'monthly_hiring_pipeline', 'download_both_data', 'scheduled__2025-07-05T15:00:00+00:00', '--job-id', '123', '--raw', '--subdir', 'DAGS_FOLDER/dag_dynamic.py', '--cfg-path', '/tmp/tmp9s17kjmv']
+[2025-11-04T20:16:10.267+0000] {standard_task_runner.py:105} INFO - Job 123: Subtask download_both_data
+[2025-11-04T20:16:10.486+0000] {task_command.py:467} INFO - Running <TaskInstance: monthly_hiring_pipeline.download_both_data scheduled__2025-07-05T15:00:00+00:00 [running]> on host 94ae2b4d245a
+[2025-11-04T20:16:10.576+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='monthly_hiring_pipeline' AIRFLOW_CTX_TASK_ID='download_both_data' AIRFLOW_CTX_EXECUTION_DATE='2025-07-05T15:00:00+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='scheduled__2025-07-05T15:00:00+00:00'
+[2025-11-04T20:16:10.577+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-11-04T20:16:10.591+0000] {subprocess.py:78} INFO - Tmp dir root location: /tmp
+[2025-11-04T20:16:10.593+0000] {subprocess.py:88} INFO - Running command: ['/usr/bin/bash', '-c', 'curl -o /opt/airflow/dags/2025-07-05/raw/data_1.csv https://gitlab.com/eduardomoyab/laboratorio-13/-/raw/main/files/data_1.csv && curl -o /opt/airflow/dags/2025-07-05/raw/data_2.csv https://gitlab.com/eduardomoyab/laboratorio-13/-/raw/main/files/data_2.csv']
+[2025-11-04T20:16:10.606+0000] {subprocess.py:99} INFO - Output:
+[2025-11-04T20:16:10.618+0000] {subprocess.py:106} INFO -   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+[2025-11-04T20:16:10.619+0000] {subprocess.py:106} INFO -                                  Dload  Upload   Total   Spent    Left  Speed
+[2025-11-04T20:16:10.951+0000] {subprocess.py:106} INFO -   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 32735  100 32735    0     0  98110      0 --:--:-- --:--:-- --:--:-- 98303
+[2025-11-04T20:16:10.971+0000] {subprocess.py:106} INFO -   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+[2025-11-04T20:16:10.974+0000] {subprocess.py:106} INFO -                                  Dload  Upload   Total   Spent    Left  Speed
+[2025-11-04T20:16:11.350+0000] {subprocess.py:106} INFO -   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 32687  100 32687    0     0  86157      0 --:--:-- --:--:-- --:--:-- 86473
+[2025-11-04T20:16:11.357+0000] {subprocess.py:110} INFO - Command exited with return code 0
+[2025-11-04T20:16:11.396+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-11-04T20:16:11.398+0000] {taskinstance.py:352} INFO - Marking task as SUCCESS. dag_id=monthly_hiring_pipeline, task_id=download_both_data, run_id=scheduled__2025-07-05T15:00:00+00:00, execution_date=20250705T150000, start_date=20251104T201610, end_date=20251104T201611
+[2025-11-04T20:16:11.441+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2025-11-04T20:16:11.469+0000] {taskinstance.py:3895} INFO - 1 downstream tasks scheduled from follow-on schedule check
+[2025-11-04T20:16:11.474+0000] {local_task_job_runner.py:245} INFO - ::endgroup::

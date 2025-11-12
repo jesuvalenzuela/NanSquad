@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/matizun/NanSquad/Lab8/mlruns/635178916599935032/d49d4f76366847e782777a868c3fe7c9/artifacts
+end_time: 1760973094747
+entry_point_name: ''
+experiment_id: '635178916599935032'
+lifecycle_stage: active
+run_id: d49d4f76366847e782777a868c3fe7c9
+run_name: Best_Model_Final
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760973093643
+status: 3
+tags: []
+user_id: matizun

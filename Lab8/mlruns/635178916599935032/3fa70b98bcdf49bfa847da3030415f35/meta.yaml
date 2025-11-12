@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/matizun/NanSquad/Lab8/mlruns/635178916599935032/3fa70b98bcdf49bfa847da3030415f35/artifacts
+end_time: 1760973081023
+entry_point_name: ''
+experiment_id: '635178916599935032'
+lifecycle_stage: active
+run_id: 3fa70b98bcdf49bfa847da3030415f35
+run_name: XGBoost_lr0.202_depth5_n119
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760973079855
+status: 3
+tags: []
+user_id: matizun

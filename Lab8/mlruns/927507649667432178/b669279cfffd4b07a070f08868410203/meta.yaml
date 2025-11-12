@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jesu/Desktop/WORK/lab-programacion-cientifica/NanSquad/Lab8/mlruns/927507649667432178/b669279cfffd4b07a070f08868410203/artifacts
+end_time: 1760720778152
+entry_point_name: ''
+experiment_id: '927507649667432178'
+lifecycle_stage: active
+run_id: b669279cfffd4b07a070f08868410203
+run_name: Best_Model_Final
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1760720772977
+status: 3
+tags: []
+user_id: jesu

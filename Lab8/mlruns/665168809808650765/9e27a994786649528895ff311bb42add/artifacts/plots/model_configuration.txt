@@ -1,0 +1,11 @@
+CONFIGURACIÓN DEL MODELO FINAL
+F1-Score: 0.6530
+
+Hiperparámetros:
+learning_rate: 0.24621956586300053
+n_estimators: 282
+max_depth: 7
+max_leaves: 5
+min_child_weight: 7
+reg_alpha: 0.5519229152648619
+reg_lambda: 1.752310074661845

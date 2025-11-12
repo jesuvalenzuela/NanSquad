@@ -1,0 +1,22 @@
+artifact_path: file:///Users/jesu/Desktop/WORK/lab-programacion-cientifica/NanSquad/Lab8/mlruns/665168809808650765/models/m-7f561cd5207344588703dc80e24a1785/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.10.18
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.4.2
+mlflow_version: 3.5.0
+model_id: m-7f561cd5207344588703dc80e24a1785
+model_size_bytes: 277679
+model_uuid: m-7f561cd5207344588703dc80e24a1785
+prompts: null
+run_id: f179673b148647c3aa931668df6215ea
+utc_time_created: '2025-10-17 17:03:45.611204'

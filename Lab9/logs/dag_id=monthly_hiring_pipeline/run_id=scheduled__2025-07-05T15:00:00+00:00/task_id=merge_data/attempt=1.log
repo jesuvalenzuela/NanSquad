@@ -1,0 +1,20 @@
+[2025-11-04T20:17:00.125+0000] {local_task_job_runner.py:123} INFO - ::group::Pre task execution logs
+[2025-11-04T20:17:00.146+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.merge_data scheduled__2025-07-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:17:00.161+0000] {taskinstance.py:2613} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: monthly_hiring_pipeline.merge_data scheduled__2025-07-05T15:00:00+00:00 [queued]>
+[2025-11-04T20:17:00.163+0000] {taskinstance.py:2866} INFO - Starting attempt 1 of 1
+[2025-11-04T20:17:00.204+0000] {taskinstance.py:2889} INFO - Executing <Task(PythonOperator): merge_data> on 2025-07-05 15:00:00+00:00
+[2025-11-04T20:17:00.269+0000] {standard_task_runner.py:72} INFO - Started process 7027 to run task
+[2025-11-04T20:17:00.295+0000] {standard_task_runner.py:104} INFO - Running: ['airflow', 'tasks', 'run', 'monthly_hiring_pipeline', 'merge_data', 'scheduled__2025-07-05T15:00:00+00:00', '--job-id', '131', '--raw', '--subdir', 'DAGS_FOLDER/dag_dynamic.py', '--cfg-path', '/tmp/tmpoi7kt5ps']
+[2025-11-04T20:17:00.321+0000] {standard_task_runner.py:105} INFO - Job 131: Subtask merge_data
+[2025-11-04T20:17:00.458+0000] {task_command.py:467} INFO - Running <TaskInstance: monthly_hiring_pipeline.merge_data scheduled__2025-07-05T15:00:00+00:00 [running]> on host 94ae2b4d245a
+[2025-11-04T20:17:00.557+0000] {taskinstance.py:3132} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='monthly_hiring_pipeline' AIRFLOW_CTX_TASK_ID='merge_data' AIRFLOW_CTX_EXECUTION_DATE='2025-07-05T15:00:00+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='scheduled__2025-07-05T15:00:00+00:00'
+[2025-11-04T20:17:00.559+0000] {taskinstance.py:731} INFO - ::endgroup::
+[2025-11-04T20:17:00.591+0000] {logging_mixin.py:190} INFO - data_1.csv cargado
+[2025-11-04T20:17:00.597+0000] {logging_mixin.py:190} INFO - data_2.csv cargado
+[2025-11-04T20:17:00.618+0000] {logging_mixin.py:190} INFO - Archivo fusionado guardado: /opt/airflow/dags/2025-07-05/preprocessed/merged_data.csv
+[2025-11-04T20:17:00.619+0000] {python.py:240} INFO - Done. Returned value was: /opt/airflow/dags/2025-07-05/preprocessed/merged_data.csv
+[2025-11-04T20:17:00.642+0000] {taskinstance.py:340} INFO - ::group::Post task execution logs
+[2025-11-04T20:17:00.644+0000] {taskinstance.py:352} INFO - Marking task as SUCCESS. dag_id=monthly_hiring_pipeline, task_id=merge_data, run_id=scheduled__2025-07-05T15:00:00+00:00, execution_date=20250705T150000, start_date=20251104T201700, end_date=20251104T201700
+[2025-11-04T20:17:00.694+0000] {local_task_job_runner.py:266} INFO - Task exited with return code 0
+[2025-11-04T20:17:00.731+0000] {taskinstance.py:3895} INFO - 1 downstream tasks scheduled from follow-on schedule check
+[2025-11-04T20:17:00.739+0000] {local_task_job_runner.py:245} INFO - ::endgroup::

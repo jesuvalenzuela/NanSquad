@@ -1,0 +1,7 @@
+python: 3.10.18 | packaged by conda-forge | (main, Jun  4 2025, 14:46:00) [Clang 18.1.8 ]
+optuna: 4.5.0
+mlflow: 3.5.0
+xgboost: 2.0.3
+pandas: 2.1.4
+matplotlib: 3.7.5
+sklearn: sklearn
