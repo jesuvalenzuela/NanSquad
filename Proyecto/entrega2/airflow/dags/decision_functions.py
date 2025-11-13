@@ -23,57 +23,36 @@ import matplotlib.pyplot as plt
 
 from scipy.stats import ks_2samp, chi2_contingency
 
-import gradio as gr
+#import gradio as gr
 
-# ====== Crear carpetas ======
-def create_folders(base_path='', **context):
-    """
-    Crea una carpeta, la cual utiliza la fecha de ejecución como nombre.
-    Adicionalmente, dentro de esta carpeta crea las siguientes subcarpetas:
-        - raw
-        - transformed
-        - splits
-        - preprocessed
-        - mlruns
-        - models
-        - drift_reports
-        - interpretability
-    """
-    # Obtener la fecha de ejecución desde el contexto de Airflow
-    execution_date = context['ds']
-    #execution_date = execution_date.strftime('%Y-%m-%d')       # Formatear la fecha como string (YYYY-MM-DD)
+# Configurar logging
+import logging
+logging.getLogger('mlflow').setLevel(logging.ERROR)
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-    # Crear la carpeta principal con la fecha
-    main_folder = os.path.join(base_path, execution_date)
-    os.makedirs(main_folder, exist_ok=True)
-    
-    # Crear las subcarpetas
-    subfolders = ['raw',
-                  'transformed',
-                  'preprocessed',
-                  'splits',
-                  'mlruns',
-                  'models',
-                  'drift_reports',
-                  'interpretability',
-                  'evaluation']
-    
-    for subfolder in subfolders:
-        subfolder_path = os.path.join(main_folder, subfolder)
-        os.makedirs(subfolder_path, exist_ok=True)
+def extend_dataset(data_path):
+    """Agrega nuevas observaciones al dataset historico"""
+    path_new = os.path.join(data_path, 'new', 'transacciones.parquet')
+    path_historical = os.path.join(data_path, 'historical_raw', 'transacciones.parquet')
 
-    return main_folder
+    new_rows = pd.read_parquet(path_new)
+    df_old = pd.read_parquet(path_historical)
+
+    df_extended = pd.concat([df_old, new_rows], ignore_index=True)
+    df_extended.to_parquet(path_historical)
+
 
 # ====== Preparar datos ======
-def read_parquet_files(raw_path):
+def read_parquet_files(data_path):
     """Carga 3 archivos parquet desde el directorio de trabajo."""
-    
+    transacciones_path = os.path.join(data_path, 'historical_raw', 'transacciones.parquet')
+    clientes_path = os.path.join(data_path, 'raw', 'clientes.parquet')
+    productos_path = os.path.join(data_path, 'raw', 'productos.parquet')
+
     # Cargar archivos
-    files = ['transacciones.parquet', 'clientes.parquet', 'productos.parquet']
     dataframes = []
 
-    for file in files:
-        file_path = os.path.join(raw_path, file)
+    for file_path in [transacciones_path, clientes_path, productos_path]:
         # Corroborar que archivo existe
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Archivo no encontrado: {file_path}")
@@ -120,17 +99,14 @@ def assign_priority(row,
         return 'Very High'
     
 
-def prepare_data(**context):
+def prepare_data(data_path):
     """
     Lee los datos en bruto y los prepara para el modelamiento.
     Supuesto: estos aparecen 'magicamente' en la carpeta raw.
     """
     # Leer datos
-    main_folder = context['ti'].xcom_pull(task_ids='create_folders')
-    raw_path = os.path.join(main_folder, 'raw')
-    transformed_path = os.path.join(main_folder, 'transformed')
-
-    transacciones_0, clientes_0, productos_0 = read_parquet_files(raw_path)
+    transformed_path = os.path.join(data_path, 'transformed')
+    transacciones_0, clientes_0, productos_0 = read_parquet_files(data_path)
 
     # 1. Eliminar duplicados
     transacciones = transacciones_0.drop_duplicates()
@@ -205,11 +181,10 @@ def prepare_data(**context):
 
 
 # ====== Holdout ======
-def split_data(**context):
+def split_data(data_path):
     """Separar datos preparados en conjuntos de entrenamiento, validación y prueba."""
-    main_folder = context['ti'].xcom_pull(task_ids='create_folders')
-    transformed_path = f"{main_folder}/transformed/weekly_data.csv"
-    weekly_data = pd.read_csv(transformed_path)
+    transformed_data_path = os.path.join(data_path, 'transformed', 'weekly_data.csv')
+    weekly_data = pd.read_csv(transformed_data_path)
 
     # Para conservar el orden temporal, ordenamos el dataset y luego separamos usando 'shuffle = False'
     df_sorted = weekly_data.sort_values(by = ['week'])
@@ -232,7 +207,7 @@ def split_data(**context):
     test_df = pd.concat([X_test, y_test], axis=1)
 
     # Guardar splits
-    splits_path = os.path.join(main_folder, 'splits')
+    splits_path = os.path.join(data_path, 'splits')
     train_df.to_csv(os.path.join(splits_path, 'train.csv'), index=False)
     val_df.to_csv(os.path.join(splits_path, 'val.csv'), index=False)
     test_df.to_csv(os.path.join(splits_path, 'test.csv'), index=False)
@@ -374,11 +349,12 @@ def create_pipeline(numerical_cols=['num_deliver_per_week', 'size', 'week'],
     
     return full_pipeline
 
-def preprocess_data(target_column='priority', **context):
+def preprocess_data(base_path, target_column='priority'):
     """Ejecutar el preprocesamiento de las features."""
     # Cargar datos
-    main_folder = context['ti'].xcom_pull(task_ids='create_folders')
-    splits_path = os.path.join(main_folder, 'splits')
+    data_path = os.path.join(base_path, 'data')
+    splits_path = os.path.join(data_path, 'splits')
+
     train_df = pd.read_csv(os.path.join(splits_path, 'train.csv'))
     val_df = pd.read_csv(os.path.join(splits_path, 'val.csv'))
     test_df = pd.read_csv(os.path.join(splits_path, 'test.csv'))
@@ -404,32 +380,23 @@ def preprocess_data(target_column='priority', **context):
     test_df_clean = pd.concat([X_test_clean, y_test], axis=1)
 
     # Guardar splits
-    preprocessed_path = os.path.join(main_folder, 'preprocessed')
+    preprocessed_path = os.path.join(data_path, 'preprocessed')
     train_df_clean.to_csv(os.path.join(preprocessed_path, 'train.csv'), index=False)
     val_df_clean.to_csv(os.path.join(preprocessed_path, 'val.csv'), index=False)
     test_df_clean.to_csv(os.path.join(preprocessed_path, 'test.csv'), index=False)
 
-    preprocessor_path = os.path.join(main_folder, 'models', f'preprocessor.joblib')
+    preprocessor_path = os.path.join(base_path, 'models', f'preprocessor.joblib')
     joblib.dump(pipeline_preprocesamiento, preprocessor_path)
 
     return preprocessed_path
 
-
-def get_best_model(experiment_id):
-    """Retorna modelo con mayor F1-Score"""
-    runs = mlflow.search_runs(experiment_id)
-    best_model_id = runs.sort_values("metrics.valid_f1", ascending=False)["run_id"].iloc[0]
-    best_model = mlflow.sklearn.load_model("runs:/" + best_model_id + "/model")
-
-    return best_model   
-
-def optimize_model(target_column='priority', n_trials=50, model_name='KNN_optimo', **context):
+def optimize_model(base_path, target_column='priority', n_trials=50, model_name='KNN_optimo', **context):
     """Optimiza parámetros de clasificador K-Neighbors con Optuna y registra en MLFlow."""
-    main_folder = context['ti'].xcom_pull(task_ids='create_folders')
-    preprocessed_path = os.path.join(main_folder, 'preprocessed')
+    data_path = os.path.join(base_path, 'data')
+    preprocessed_path = os.path.join(data_path, 'preprocessed')
 
     # Configurar MFlow
-    mlruns_path = os.path.join(main_folder, 'mlruns')
+    mlruns_path = os.path.join(base_path, 'mlruns')
     mlflow.set_tracking_uri(f"file://{mlruns_path}")
 
     # Cargar datos
@@ -439,16 +406,10 @@ def optimize_model(target_column='priority', n_trials=50, model_name='KNN_optimo
     X_train, y_train = train_df.drop(columns=[target_column]), train_df[target_column]
     X_val, y_val = val_df.drop(columns=[target_column]), val_df[target_column]
 
-    import logging
-    logging.getLogger('mlflow').setLevel(logging.ERROR)
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-    
     # Configurar experimento MLFlow
-    experiment_name = f"KNN_Optimization"
+    execution_date = context['ds']
+    experiment_name = f"{model_name}_optimization_{execution_date}"
     mlflow.set_experiment(experiment_name)
-    
-    experiment = mlflow.get_experiment_by_name(experiment_name)
-    experiment_id = experiment.experiment_id        # para get_best_model()
 
     # Función objetivo para Optuna
     def objective(trial):
@@ -465,107 +426,186 @@ def optimize_model(target_column='priority', n_trials=50, model_name='KNN_optimo
         
         # Registrar en MLFlow
         with mlflow.start_run(run_name=run_name):
-            # Modelo
             clf = KNeighborsClassifier(**params)
-            
-            # Entrenar y predecir
             clf.fit(X_train, y_train)
+            
+            # Métricas en validación
             y_pred_val = clf.predict(X_val)
-
-            # Calcular métricas
             f1 = f1_score(y_val, y_pred_val, average="macro")
-            accuracy = accuracy_score(y_val, y_pred_val)
-            precision = precision_score(y_val, y_pred_val, average="macro", zero_division=0)
-            recall = recall_score(y_val, y_pred_val, average="macro", zero_division=0)
 
             # Registrar en MLflow
             mlflow.log_params(params)
             mlflow.log_metric("valid_f1", f1)
-            mlflow.log_metric("valid_accuracy", accuracy)
-            mlflow.log_metric("valid_precision", precision)
-            mlflow.log_metric("valid_recall", recall)
             mlflow.sklearn.log_model(clf, "model")
-
-            # Tags útiles
-            mlflow.set_tags({
-                "model_type": "KNeighborsClassifier",
-                "framework": "sklearn",
-                "optimization": "optuna"
-            })
         
         return f1
     
     # Ejecutar optimización
-    study = optuna.create_study(direction='maximize')
+    study = optuna.create_study(direction='maximize', study_name=f"{model_name}_study")
     study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
-    # Obtener mejor modelo usando get_best_model()
-    best_model = get_best_model(experiment_id)
-
-    # Guardar mejor modelo entrenado
-    model_path = os.path.join(main_folder, 'models', f'{model_name}.joblib')
-    joblib.dump(best_model, model_path)
-    
-    return model_path
+    # Obtener mejores parámetros
+    best_params = study.best_params
+    return best_params
 
 
 # ====== Evaluación en test set ======
-def evaluate_model(target_column='priority', **context):
+def evaluate_and_interpret_model(base_path, target_column='priority', model_name='KNN_optimo', n_shap_samples=500, **context):
     """Evalúa el modelo en el conjunto de test y registra métricas"""
-    main_folder = context['ti'].xcom_pull(task_ids='create_folders')
-    preprocessed_path = os.path.join(main_folder, 'preprocessed')
-    model_path = context['ti'].xcom_pull(task_ids='optimize_model')
-    evaluation_path = os.path.join(main_folder, 'evaluation')
+    best_params = context['ti'].xcom_pull(task_ids='optimize_model')
+
+    # Cargar todos los datos
+    preprocessed_path = os.path.join(base_path, 'data', 'preprocessed')
+    train_df = pd.read_csv(os.path.join(preprocessed_path, 'train.csv'))
+    val_df = pd.read_csv(os.path.join(preprocessed_path, 'val.csv'))
+    test_df = pd.read_csv(os.path.join(preprocessed_path, 'test.csv'))
+    
+    # Preparar datasets
+    X_train, y_train = train_df.drop(columns=[target_column]), train_df[target_column]
+    X_val, y_val = val_df.drop(columns=[target_column]), val_df[target_column]
+    X_test, y_test = test_df.drop(columns=[target_column]), test_df[target_column]
 
     # Configurar MFlow
-    mlruns_path = os.path.join(main_folder, 'mlruns')
+    mlruns_path = os.path.join(base_path, 'mlruns')
     mlflow.set_tracking_uri(f"file://{mlruns_path}")
     
-    # Cargar datos y modelo
-    test_df = pd.read_csv(os.path.join(preprocessed_path, 'test.csv'))
-    X_test, y_test = test_df.drop(columns=[target_column]), test_df[target_column]
-    
-    model = joblib.load(model_path)
-    
-    # Predicciones
-    y_pred = model.predict(X_test)
-    
-    # Calcular métricas
-    f1 = f1_score(y_test, y_pred, average="macro")
-    accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred, average="macro", zero_division=0)
-    recall = recall_score(y_test, y_pred, average="macro", zero_division=0)
-    
-    # Guardar métricas
-    metrics = {
-        'test_f1': f1,
-        'test_accuracy': accuracy,
-        'test_precision': precision,
-        'test_recall': recall,
-        'timestamp': datetime.now().isoformat()
-    }
-    
-    import json
-    metrics_path = os.path.join(evaluation_path, 'test_metrics.json')
-    with open(metrics_path, 'w') as f:
-        json.dump(metrics, f, indent=2)
-    
-    # Registrar en MLflow
     experiment_name = "Model_Evaluation"
     mlflow.set_experiment(experiment_name)
-    
-    with mlflow.start_run(run_name=f"test_evaluation_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
+
+    execution_date = context['ds']
+    with mlflow.start_run(run_name=f"model_evaluation_and_interpretation_{execution_date}"):
+        # Entrenar con mejores parámetros
+        best_model = KNeighborsClassifier(**best_params)
+        best_model.fit(X_train, y_train)
+        
+        # Evaluar en todos los sets
+        metrics = {}
+        
+        # Train metrics
+        y_pred_train = best_model.predict(X_train)
+        metrics['train_f1'] = f1_score(y_train, y_pred_train, average="macro")
+        metrics['train_accuracy'] = accuracy_score(y_train, y_pred_train)
+        metrics['train_precision'] = precision_score(y_train, y_pred_train, average="macro", zero_division=0)
+        metrics['train_recall'] = recall_score(y_train, y_pred_train, average="macro", zero_division=0)
+        
+        # Validation metrics
+        y_pred_val = best_model.predict(X_val)
+        metrics['valid_f1'] = f1_score(y_val, y_pred_val, average="macro")
+        metrics['valid_accuracy'] = accuracy_score(y_val, y_pred_val)
+        metrics['valid_precision'] = precision_score(y_val, y_pred_val, average="macro", zero_division=0)
+        metrics['valid_recall'] = recall_score(y_val, y_pred_val, average="macro", zero_division=0)
+        
+        # Test metrics
+        y_pred_test = best_model.predict(X_test)
+        metrics['test_f1'] = f1_score(y_test, y_pred_test, average="macro")
+        metrics['test_accuracy'] = accuracy_score(y_test, y_pred_test)
+        metrics['test_precision'] = precision_score(y_test, y_pred_test, average="macro", zero_division=0)
+        metrics['test_recall'] = recall_score(y_test, y_pred_test, average="macro", zero_division=0)
+        
+        # Registrar todas las métricas
+        mlflow.log_params(best_params)
         mlflow.log_metrics(metrics)
-        mlflow.log_artifact(metrics_path)
         
         # Guardar classification report
-        report = classification_report(y_test, y_pred, output_dict=True)
+        report = classification_report(y_test, y_pred_test, output_dict=True)
         report_df = pd.DataFrame(report).transpose()
-        report_path = os.path.join(evaluation_path, 'classification_report.csv')
+        
+        # Guardar como artefacto temporal
+        report_path = os.path.join(base_path, 'temp_classification_report.csv')
         report_df.to_csv(report_path)
         mlflow.log_artifact(report_path)
+        os.remove(report_path)  # Limpiar archivo temporal
+        
+        # Interpretabilidad con SHAP
+        try:
+            X_sample = X_test.sample(min(n_shap_samples, len(X_test)), random_state=42)
+            
+            # KNN usa KernelExplainer
+            explainer = shap.KernelExplainer(
+                best_model.predict_proba,
+                shap.sample(X_train, min(100, len(X_train)))
+            )
+            shap_values = explainer.shap_values(X_sample)
+            
+            # Summary plot
+            plt.figure(figsize=(12, 8))
+            shap.summary_plot(shap_values, X_sample, show=False)
+            shap_path = os.path.join(base_path, 'temp_shap_summary.png')
+            plt.savefig(shap_path, dpi=150, bbox_inches='tight')
+            plt.close()
+            
+            mlflow.log_artifact(shap_path)
+            os.remove(shap_path)  # Limpiar archivo temporal
+            
+        except Exception as e:
+            print(f"Error generando SHAP: {str(e)}")
+            mlflow.log_param("shap_error", str(e))
+        
+        # Guardar modelo entrenado con train set
+        model_train_path = os.path.join(base_path, 'models', f'{model_name}_train.joblib')
+        joblib.dump(best_model, model_train_path)
+        mlflow.log_artifact(model_train_path)
+
+    return mlruns_path
+
+def train_final_model(base_path, target_column='priority', model_name='KNN_optimo', **context):
+    """Entrena el modelo con todos los datos, usando los parámetros optimos encontrados en la optimizacion"""
+    best_params = context['ti'].xcom_pull(task_ids='optimize_model')
+
+    # Configurar MLflow
+    mlruns_path = os.path.join(base_path, 'mlruns')
+    mlflow.set_tracking_uri(f"file://{mlruns_path}")
     
-    return evaluation_path
+    # Cargar todos los datos una sola vez
+    preprocessed_path = os.path.join(base_path, 'data', 'preprocessed')
+    train_df = pd.read_csv(os.path.join(preprocessed_path, 'train.csv'))
+    val_df = pd.read_csv(os.path.join(preprocessed_path, 'val.csv'))
+    test_df = pd.read_csv(os.path.join(preprocessed_path, 'test.csv'))
+    
+    # Preparar datasets
+    X_train, y_train = train_df.drop(columns=[target_column]), train_df[target_column]
+    X_val, y_val = val_df.drop(columns=[target_column]), val_df[target_column]
+    X_test, y_test = test_df.drop(columns=[target_column]), test_df[target_column]
+    
+    # Concatenar todos los datos para el entrenamiento final
+    X_all = pd.concat([X_train, X_val, X_test], ignore_index=True)
+    y_all = pd.concat([y_train, y_val, y_test], ignore_index=True)
+
+    experiment_name = "Final_Model"
+    mlflow.set_experiment(experiment_name)
+
+    execution_date = context['ds']
+    with mlflow.start_run(run_name=f"final_model_{execution_date}"):
+
+        final_model = KNeighborsClassifier(**best_params)
+        final_model.fit(X_all, y_all)
+        
+        # Guardar modelo final
+        model_final_path = os.path.join(base_path, 'models', f'{model_name}.joblib')
+        joblib.dump(final_model, model_final_path)
+        
+        # Registrar el modelo final en MLflow
+        mlflow.sklearn.log_model(
+            final_model, 
+            "model_full_data",
+            registered_model_name=model_name
+        )
+
+# ======
+def save_library_versions():
+    # Guardar versiones de librerías
+
+    with open("library_versions.txt", "w") as f:
+        f.write(f"python: {sys.version}\n")
+        f.write(f"optuna: {optuna.__version__}\n")
+        f.write(f"mlflow: {mlflow.__version__}\n")
+        f.write(f"shap: {shap.__version__}\n")
+        f.write(f"pandas: {pd.__version__}\n")
+        f.write(f"numpy: {np.__version__}\n")
+        f.write(f"matplotlib: {plt.matplotlib.__version__}\n")
+        f.write(f"joblib: {joblib.__version__}\n")
+        f.write(f"sklearn: {Pipeline.__module__.split('.')[0]}\n")
+        f.write(f"gradio: {gr.__version__}\n")
 
 
 # ====== Detección de drift ======
@@ -574,9 +614,9 @@ def detect_drift(significance_level=0.05, **context):
     Detecta data drift comparando distribuciones entre train y nuevos datos.
     Retorna True si se detecta drift significativo.
     """
-    main_folder = context['ti'].xcom_pull(task_ids='create_folders')
-    preprocessed_path = os.path.join(main_folder, 'preprocessed')
-    drift_reports_path = os.path.join(main_folder, 'drift_reports')
+    base_path = context['ti'].xcom_pull(task_ids='create_folders')
+    preprocessed_path = os.path.join(base_path, 'preprocessed')
+    drift_reports_path = os.path.join(base_path, 'drift_reports')
     
     # Cargar datos
     train_df = pd.read_csv(os.path.join(preprocessed_path, 'train.csv'))
@@ -620,7 +660,7 @@ def detect_drift(significance_level=0.05, **context):
         json.dump(drift_report, f, indent=2)
     
     # Configurar MLflow y registrar
-    mlruns_path = os.path.join(main_folder, 'mlruns')
+    mlruns_path = os.path.join(base_path, 'mlruns')
     mlflow.set_tracking_uri(f"file://{mlruns_path}")
 
     experiment_name = "Drift_Detection"
@@ -636,59 +676,7 @@ def detect_drift(significance_level=0.05, **context):
     
     return drift_detected
 
-
-# ====== Interpretabilidad con SHAP ======
-def generate_interpretability(n_samples=500, **context):
-    """Genera explicaciones SHAP del modelo"""
-    main_folder = context['ti'].xcom_pull(task_ids='create_folders')
-    preprocessed_path = os.path.join(main_folder, 'preprocessed')
-    model_path = context['ti'].xcom_pull(task_ids='optimize_model')
-    interpretability_path = os.path.join(main_folder, 'interpretability')
-    
-    # Cargar datos y modelo
-    test_df = pd.read_csv(os.path.join(preprocessed_path, 'test.csv'))
-    X_test = test_df.drop(columns=['priority'])
-    
-    model = joblib.load(model_path)
-    
-    # Crear explainer SHAP (usar subset para velocidad)
-    X_sample = X_test.sample(min(n_samples, len(X_test)), random_state=42)
-
-    try:
-        # KNN usa KernelExplainer
-        explainer = shap.KernelExplainer(
-            model.predict_proba,
-            shap.sample(X_test, 100)
-        )
-        shap_values = explainer.shap_values(X_sample)
-        
-        # Summary plot
-        plt.figure(figsize=(12, 8))
-        shap.summary_plot(shap_values, X_sample, show=False)
-        summary_path = os.path.join(interpretability_path, 'shap_summary.png')
-        plt.savefig(summary_path, dpi=150, bbox_inches='tight')
-        plt.close()
-        
-        # Registrar en MLflow
-        mlruns_path = os.path.join(main_folder, 'mlruns')
-        mlflow.set_tracking_uri(f"file://{mlruns_path}")
-
-        experiment_name = "Model_Interpretability"
-        mlflow.set_experiment(experiment_name)
-        
-        with mlflow.start_run(run_name=f"shap_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
-            mlflow.log_artifact(summary_path)
-            mlflow.log_param("n_samples", len(X_sample))
-        
-        return interpretability_path
-        
-    except Exception as e:
-        print(f"Error generando SHAP: {str(e)}")
-        print("Continuando sin interpretabilidad...")
-        return None
-
-
-# ====== Decisión de reentrenamiento ======
+# Decisión de reentrenamiento
 def should_retrain(**context):
     """
     Decide si se debe reentrenar basado en:
@@ -713,7 +701,7 @@ def should_retrain(**context):
     return 'retrain_model' if should_retrain_flag else 'skip_retrain'
 
 
-# ====== Reentrenamiento ======
+# Reentrenamiento
 def retrain_model(target_column='priority', n_trials=30, **context):
     """Reentrena el modelo con datos actualizados"""
     print("Iniciando reentrenamiento del modelo...")
@@ -727,24 +715,8 @@ def retrain_model(target_column='priority', n_trials=30, **context):
     )
 
 
-def save_library_versions():
-    # Guardar versiones de librerías
-
-    with open("library_versions.txt", "w") as f:
-        f.write(f"python: {sys.version}\n")
-        f.write(f"optuna: {optuna.__version__}\n")
-        f.write(f"mlflow: {mlflow.__version__}\n")
-        f.write(f"shap: {shap.__version__}\n")
-        f.write(f"pandas: {pd.__version__}\n")
-        f.write(f"numpy: {np.__version__}\n")
-        f.write(f"matplotlib: {plt.matplotlib.__version__}\n")
-        f.write(f"joblib: {joblib.__version__}\n")
-        f.write(f"sklearn: {Pipeline.__module__.split('.')[0]}\n")
-        f.write(f"gradio: {gr.__version__}\n")
-
-
 # ====== Interfaz gradio ======
-def prepare_data_for_prediction(week, customer_id, main_folder):
+def prepare_data_for_prediction(week, customer_id, base_path):
     """
     Lee el input del usuario y lo prepara para la predicción.
     Es decir, genera un dataframe con las siguientes columnas:
@@ -753,7 +725,7 @@ def prepare_data_for_prediction(week, customer_id, main_folder):
     y el cliente y semana ingresados.
     """
     # Leer datos
-    transformed_path = f"{main_folder}/transformed"
+    transformed_path = os.path.join(base_path, "data", "transformed")
     clientes = pd.read_csv(os.path.join(transformed_path, 'unique_clients.csv'))
     productos = pd.read_csv(os.path.join(transformed_path, 'unique_products.csv'))
 
@@ -778,18 +750,18 @@ def prepare_data_for_prediction(week, customer_id, main_folder):
                         'brand', 'sub_category', 'segment', 'package', 'size']]
 
 
-def predict_next_week(customer_id, model_path, main_folder):
+def predict_next_week(customer_id, model_path, base_path):
     """Entrega prediccion para la semana siguiente para el cliente especificado."""
 
     # transformar
-    transformed_path = f"{main_folder}/transformed"
+    transformed_path = os.path.join(base_path, "data", "transformed")
     weekly_data =  pd.read_csv(os.path.join(transformed_path, 'weekly_data.csv'))
 
     max_week = weekly_data['week'].max()
-    input_data = prepare_data_for_prediction(max_week + 1, customer_id, main_folder)
+    input_data = prepare_data_for_prediction(max_week + 1, customer_id, base_path)
 
     # preprocesar
-    preprocessor_path = os.path.join(main_folder, 'models', f'preprocessor.joblib')
+    preprocessor_path = os.path.join(base_path, 'models', f'preprocessor.joblib')
     preprocessor = joblib.load(preprocessor_path)
     data_clean = preprocessor.transform(input_data)
 
@@ -807,11 +779,11 @@ def gradio_interface(**context):
     """
     Despliega modelo en gradio.
     """
-    main_folder = context['ti'].xcom_pull(task_ids='create_folders')
+    base_path = context['ti'].xcom_pull(task_ids='create_folders')
     model_path = context['ti'].xcom_pull(task_ids='optimize_model')
 
     interface = gr.Interface(
-        fn=lambda file: predict_next_week(file, model_path, main_folder),
+        fn=lambda file: predict_next_week(file, model_path, base_path),
         inputs=gr.File(label="Ingresa un ID de cliente"),
         outputs="json",
         title="Product Priority Prediction",
