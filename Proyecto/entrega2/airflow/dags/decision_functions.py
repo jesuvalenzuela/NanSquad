@@ -30,6 +30,65 @@ import logging
 logging.getLogger('mlflow').setLevel(logging.ERROR)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+
+# ===========================
+# ====== SETUP INICIAL ======
+# ===========================
+def assert_folders(base_path='/opt/airflow'):
+    """
+    Corrobora que, dentro de la carpeta 'airflow', existen las siguientes carpetas:
+        - data/raw
+        - data/new
+        - data/historical_raw
+        - data/transformed
+        - data/splits
+        - data/preprocessed
+        - mlruns
+        - models
+    """   
+    # 1. Corroborar que exiten todos los directorios "base"
+    data_path = os.path.join(base_path, 'data')
+    os.makedirs(data_path, exist_ok=True)
+    data_subfolders = ['raw', 'new', 'historical_raw', 'transformed', 'preprocessed', 'splits']
+    for subfolder in data_subfolders:
+        subfolder_path = os.path.join(data_path, subfolder)
+        os.makedirs(subfolder_path, exist_ok=True)
+
+    mlruns_path = os.path.join(base_path, 'mlruns')
+    os.makedirs(mlruns_path, exist_ok=True)
+
+    models_path = os.path.join(base_path, 'models')
+    os.makedirs(models_path, exist_ok=True)
+
+    return base_path
+
+# ==================================
+# ====== PREPARACIÓN DE DATOS ======
+# ==================================
+
+# === Revisar si existen registros historicos ===
+# Supuestos: Los datos en bruto "aparecen magicamente" en AIRFLOW_HOME/data/raw
+# La primera vez que se corre el script, estos se copian a AIRFLOW_HOME/data/historical_raw
+# Por lo tanto, si AIRFLOW_HOME/data/historical_raw/transacciones.parquet no existe, es porque es primera vez que se ejecuta el Pipeline
+def check_historical_data(data_path):
+    """Función de branching: corrobora si existe registro de datos historicos."""
+    path_historical = os.path.join(data_path, 'historical_raw', 'transacciones.parquet')
+    if os.path.exists(path_historical):
+        return 'pass_1'
+    else:
+        return 'copy_raw'
+
+# === Revisar si hay datos nuevos ===
+# Supuesto: estos "aparecen" en AIRFLOW_HOME/data/new
+def check_new_data(data_path):
+    """Función de branching: corrobora si existen datos nuevos."""
+
+    path_new = os.path.join(data_path, 'new', 'transacciones.parquet')
+    if os.path.exists( path_new):
+        return 'extend_dataset'
+    else:
+        return 'pass_2'
+    
 def extend_dataset(data_path):
     """Agrega nuevas observaciones al dataset historico"""
     path_new = os.path.join(data_path, 'new', 'transacciones.parquet')
@@ -40,10 +99,42 @@ def extend_dataset(data_path):
 
     df_extended = pd.concat([df_old, new_rows], ignore_index=True)
     df_extended.to_parquet(path_historical)
+    return path_historical
 
 
-# ====== Preparar datos ======
-def read_parquet_files(data_path):
+# ====================================
+# ====== PROCESAMIENTO DE DATOS ======
+# ====================================
+
+# === Decisión de entrenamiento ===
+# Solo se realiza la preparación, split y preprocesamiento de datos si se va entrenar (o reentrenar) el modelo
+def decide_if_train(**context):
+    """
+    Función de branching: decide si es necesario entrenar el modelo.
+    Entrena si se agregaron nuevos datos o es primera vez que se corre el pipeline.
+    """
+    dag_run = context['dag_run']
+    
+    # Obtener estados de las tareas
+    copy_raw_instance = dag_run.get_task_instance('copy_raw')
+    extension_instance = dag_run.get_task_instance('extend_dataset')
+    
+    # Corroborar si alguna corrio con exito
+    if copy_raw_instance and extension_instance:
+        copy_raw_success = copy_raw_instance.state == 'success'
+        extension_success = extension_instance.state == 'success'
+
+        if copy_raw_success or extension_success:
+            return 'prepare_data'
+        else:
+            return 'not_train'
+    else:
+        print(f"One of the tasks does not exist!!")
+        return None
+
+# === Formateo inicial de los datos ===
+# Supuesto: Solo se agregan nuevas transacciones. Es decir, no se agregan nuevos clientes ni productos.
+def read_raw_parquet_files(data_path):
     """Carga 3 archivos parquet desde el directorio de trabajo."""
     transacciones_path = os.path.join(data_path, 'historical_raw', 'transacciones.parquet')
     clientes_path = os.path.join(data_path, 'raw', 'clientes.parquet')
@@ -60,15 +151,13 @@ def read_parquet_files(data_path):
 
     return dataframes
 
-
 def calculate_client_quantiles(group, global_quantiles):
-    """Calcular cuantiles para un grupo de observaciones"""
-    if len(group) >= 5:  # Si ha comprado al menos 5 veces (cualquier producto)
+    """Calcular cuantiles para un grupo de observaciones."""
+    if len(group) >= 5:     # Si ha comprado al menos 5 veces (cualquier producto)
         return group.quantile([0.2, 0.4, 0.6, 0.8])
     else:
         # Pocos datos: usar cuantiles globales
         return pd.Series(global_quantiles, index=[0.2, 0.4, 0.6, 0.8])
-
 
 def assign_priority(row,
                     client_quantiles,
@@ -76,7 +165,7 @@ def assign_priority(row,
                     client_col='customer_id',
                     items_col='weekly_items'
                     ):
-    """Asigna string de prioridad según cuantiles"""
+    """Asigna string de prioridad según cuantiles."""
     customer_id = row[client_col]
     items_value = row[items_col]
     
@@ -98,15 +187,13 @@ def assign_priority(row,
     else:
         return 'Very High'
     
-
 def prepare_data(data_path):
     """
     Lee los datos en bruto y los prepara para el modelamiento.
-    Supuesto: estos aparecen 'magicamente' en la carpeta raw.
     """
     # Leer datos
     transformed_path = os.path.join(data_path, 'transformed')
-    transacciones_0, clientes_0, productos_0 = read_parquet_files(data_path)
+    transacciones_0, clientes_0, productos_0 = read_raw_parquet_files(data_path)
 
     # 1. Eliminar duplicados
     transacciones = transacciones_0.drop_duplicates()
@@ -114,19 +201,22 @@ def prepare_data(data_path):
     productos = productos_0.drop_duplicates()
 
     # 2. Cruce de información
+    # Usamos left join, ya que solo nos interesan productos que han sido transados.
     df_t = pd.merge(transacciones, productos, on='product_id', how='left')
 
     # Guardar productos unicos
     productos_unicos = df_t[['product_id', 'brand', 'sub_category', 'segment', 'package', 'size']].copy().drop_duplicates()
     productos_unicos.to_csv(os.path.join(transformed_path, 'unique_products.csv'), index=False)
     
+    # Para clientes también usamos left join, ya que solo nos interesan aquellos que compran.
     df_c = pd.merge(transacciones, clientes, on='customer_id', how='left')
 
     # Guardar clientes unicos
     clientes_unicos = df_c[['customer_id', 'customer_type', 'num_deliver_per_week']].copy().drop_duplicates()
     clientes_unicos.to_csv(os.path.join(transformed_path, 'unique_clients.csv'), index=False)
 
-    # juntar todo
+    # Juntar todo
+    # Usamos inner join para preservar transacciones que tienen tanto informacion de clientes como productos.
     df = pd.merge(df_t, df_c, on='transaction_id', how='inner')
 
     # 3. Corregir tipo de dato
@@ -136,9 +226,12 @@ def prepare_data(data_path):
         df[col] = df[col].astype('category')
 
     # 4. Agregación a escala semanal
+    # El dataset solo abarca 1 año, por lo que no hay informacion de variabilidad entre años
+    # Por lo tanto, para la agregación solo consideramos semanas (sin agregar por año)
     iso_calendar = df['purchase_date'].dt.isocalendar()
-    df['week'] = iso_calendar['week']       # solo consideramos semanas ya que el df solo abarca 1 año
+    df['week'] = iso_calendar['week']       
 
+    # Cómo agregar
     group_cols = ['customer_id', 'week', 'product_id']
     agg_dict = {'items': 'sum'}
 
@@ -171,7 +264,7 @@ def prepare_data(data_path):
         lambda row: assign_priority(row, client_quantiles, global_quantiles),
         axis=1)
     
-    # 6. Eliminar columnas asociadas que no se usaran
+    # 6. Eliminar columnas que no se usaran
     weekly_data = weekly_data.drop(columns=['X', 'Y', 'order_id', 'region_id', 'zone_id', 'num_visit_per_week', 'category', 'purchase_date', 'weekly_items'])
 
     # 7. Guardar
@@ -179,9 +272,8 @@ def prepare_data(data_path):
 
     return transformed_path
 
-
 # ====== Holdout ======
-def split_data(data_path):
+def split_data(data_path, random_state=42):
     """Separar datos preparados en conjuntos de entrenamiento, validación y prueba."""
     transformed_data_path = os.path.join(data_path, 'transformed', 'weekly_data.csv')
     weekly_data = pd.read_csv(transformed_data_path)
@@ -195,11 +287,11 @@ def split_data(data_path):
 
     # Primero, separamos el conjunto de test, tomando el 10% final de los datos totales
     X_train_val, X_test, y_train_val, y_test = train_test_split(
-        X, y, test_size=0.1, shuffle=False, random_state=42)
+        X, y, test_size=0.1, shuffle=False, random_state=random_state)
 
     # Luego, separamos los datos restantes en conjuntos de entrenamiento (80%) y validación (20%)
     X_train, X_val, y_train, y_val = train_test_split(
-        X_train_val, y_train_val, test_size=0.2, shuffle=False, random_state=42)
+        X_train_val, y_train_val, test_size=0.2, shuffle=False, random_state=random_state)
     
     # Reconstruir dataframes completos
     train_df = pd.concat([X_train, y_train], axis=1)
@@ -213,7 +305,6 @@ def split_data(data_path):
     test_df.to_csv(os.path.join(splits_path, 'test.csv'), index=False)
 
     return splits_path
-
 
 # ====== Preprocesamiento ======
 class CategoricalImputerByType(BaseEstimator, TransformerMixin):
@@ -353,11 +444,10 @@ def preprocess_data(base_path, target_column='priority'):
     """Ejecutar el preprocesamiento de las features."""
     # Cargar datos
     data_path = os.path.join(base_path, 'data')
-    splits_path = os.path.join(data_path, 'splits')
 
-    train_df = pd.read_csv(os.path.join(splits_path, 'train.csv'))
-    val_df = pd.read_csv(os.path.join(splits_path, 'val.csv'))
-    test_df = pd.read_csv(os.path.join(splits_path, 'test.csv'))
+    train_df = pd.read_csv(os.path.join(data_path, 'splits', 'train.csv'))
+    val_df = pd.read_csv(os.path.join(data_path, 'splits', 'val.csv'))
+    test_df = pd.read_csv(os.path.join(data_path, 'splits', 'test.csv'))
 
     # Separar en target y features
     X_train, y_train = train_df.drop(columns=[target_column]), train_df[target_column]
@@ -368,7 +458,7 @@ def preprocess_data(base_path, target_column='priority'):
     pipeline_preprocesamiento = create_pipeline()
     pipeline_preprocesamiento.set_output(transform="pandas")
 
-    # Fit solo en train, transform en train/val/test
+    # Transformar features
     pipeline_preprocesamiento.fit(X_train)
     X_train_clean = pipeline_preprocesamiento.transform(X_train)
     X_val_clean = pipeline_preprocesamiento.transform(X_val)
@@ -390,6 +480,11 @@ def preprocess_data(base_path, target_column='priority'):
 
     return preprocessed_path
 
+# ==================================================================
+# ====== OPTIMIZACIÓN, EVALUACIÓN E INTERPRETACIÓN DEL MODELO ======
+# ==================================================================
+
+# ====== Optimización ======
 def optimize_model(base_path, target_column='priority', n_trials=50, model_name='KNN_optimo', **context):
     """Optimiza parámetros de clasificador K-Neighbors con Optuna y registra en MLFlow."""
     data_path = os.path.join(base_path, 'data')
@@ -399,7 +494,7 @@ def optimize_model(base_path, target_column='priority', n_trials=50, model_name=
     mlruns_path = os.path.join(base_path, 'mlruns')
     mlflow.set_tracking_uri(f"file://{mlruns_path}")
 
-    # Cargar datos
+    # Cargar datos: Optimizamos con set de validación
     train_df = pd.read_csv(os.path.join(preprocessed_path, 'train.csv'))
     val_df = pd.read_csv(os.path.join(preprocessed_path, 'val.csv'))
 
@@ -448,8 +543,7 @@ def optimize_model(base_path, target_column='priority', n_trials=50, model_name=
     best_params = study.best_params
     return best_params
 
-
-# ====== Evaluación en test set ======
+# ====== Evaluación e interpretación ======
 def evaluate_and_interpret_model(base_path, target_column='priority', model_name='KNN_optimo', n_shap_samples=500, **context):
     """Evalúa el modelo en el conjunto de test y registra métricas"""
     best_params = context['ti'].xcom_pull(task_ids='optimize_model')
@@ -469,7 +563,7 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
     mlruns_path = os.path.join(base_path, 'mlruns')
     mlflow.set_tracking_uri(f"file://{mlruns_path}")
     
-    experiment_name = "Model_Evaluation"
+    experiment_name = "Model_Evaluation_and_Interpretation"
     mlflow.set_experiment(experiment_name)
 
     execution_date = context['ds']
@@ -548,8 +642,9 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
 
     return mlruns_path
 
+# ====== Entrenar modelo final con todos los datos ======
 def train_final_model(base_path, target_column='priority', model_name='KNN_optimo', **context):
-    """Entrena el modelo con todos los datos, usando los parámetros optimos encontrados en la optimizacion"""
+    """Entrena el modelo con todos los datos, usando los parámetros optimos encontrados en la optimizacion."""
     best_params = context['ti'].xcom_pull(task_ids='optimize_model')
 
     # Configurar MLflow
@@ -591,7 +686,9 @@ def train_final_model(base_path, target_column='priority', model_name='KNN_optim
             registered_model_name=model_name
         )
 
-# ======
+# ==================================================
+# ====== CIERRE Y PREPARACIÓN PARA DESPLIEGUE ======
+# ==================================================
 def save_library_versions():
     # Guardar versiones de librerías
 
@@ -607,8 +704,9 @@ def save_library_versions():
         f.write(f"sklearn: {Pipeline.__module__.split('.')[0]}\n")
         f.write(f"gradio: {gr.__version__}\n")
 
-
-# ====== Detección de drift ======
+# ==================================================
+# ====== Detección de drift (no implementado) ======
+# ==================================================
 def detect_drift(significance_level=0.05, **context):
     """
     Detecta data drift comparando distribuciones entre train y nuevos datos.
@@ -675,44 +773,6 @@ def detect_drift(significance_level=0.05, **context):
     context['ti'].xcom_push(key='drift_detected', value=drift_detected)
     
     return drift_detected
-
-# Decisión de reentrenamiento
-def should_retrain(**context):
-    """
-    Decide si se debe reentrenar basado en:
-    1. Detección de drift
-    2. Degradación de métricas
-    3. Tiempo desde último entrenamiento
-    """
-    # Obtener resultado de drift
-    drift_detected = context['ti'].xcom_pull(
-        task_ids='detect_drift', 
-        key='drift_detected'
-    )
-    
-    # Solo consideramos drift
-    should_retrain_flag = drift_detected
-    
-    if should_retrain_flag:
-        print("REENTRENAMIENTO NECESARIO")
-    else:
-        print("No se requiere reentrenamiento")
-    
-    return 'retrain_model' if should_retrain_flag else 'skip_retrain'
-
-
-# Reentrenamiento
-def retrain_model(target_column='priority', n_trials=30, **context):
-    """Reentrena el modelo con datos actualizados"""
-    print("Iniciando reentrenamiento del modelo...")
-    
-    # Reutilizar la función de optimización pero con menos trials
-    return optimize_model(
-        target_column=target_column,
-        n_trials=n_trials,
-        model_name='KNN_retrained',
-        **context
-    )
 
 
 # ====== Interfaz gradio ======
