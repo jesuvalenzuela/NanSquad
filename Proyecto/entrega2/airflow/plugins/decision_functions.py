@@ -1,34 +1,24 @@
-import sys
 import os
 from datetime import datetime
 
 import pandas as pd
 import numpy as np
 
-from sklearn.model_selection import train_test_split
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.neighbors import KNeighborsClassifier
 
 import joblib
-import optuna
 import mlflow
-import shap
 
-import matplotlib.pyplot as plt
-
-from scipy.stats import ks_2samp, chi2_contingency
+#from scipy.stats import ks_2samp, chi2_contingency
 
 #import gradio as gr
 
 # Configurar logging
 import logging
 logging.getLogger('mlflow').setLevel(logging.ERROR)
-optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 
 # ===========================
@@ -89,7 +79,7 @@ def check_new_data(data_path):
     else:
         return 'pass_2'
     
-def extend_dataset(data_path):
+def extend_dataset(data_path, **context):
     """Agrega nuevas observaciones al dataset historico"""
     path_new = os.path.join(data_path, 'new', 'transacciones.parquet')
     path_historical = os.path.join(data_path, 'historical_raw', 'transacciones.parquet')
@@ -99,6 +89,8 @@ def extend_dataset(data_path):
 
     df_extended = pd.concat([df_old, new_rows], ignore_index=True)
     df_extended.to_parquet(path_historical)
+
+    context['task_instance'].xcom_push(key='new_data_added', value=True)
     return path_historical
 
 
@@ -108,29 +100,24 @@ def extend_dataset(data_path):
 
 # === Decisión de entrenamiento ===
 # Solo se realiza la preparación, split y preprocesamiento de datos si se va entrenar (o reentrenar) el modelo
-def decide_if_train(**context):
+def decide_if_train(base_path, model_name, **context):
     """
     Función de branching: decide si es necesario entrenar el modelo.
     Entrena si se agregaron nuevos datos o es primera vez que se corre el pipeline.
     """
-    dag_run = context['dag_run']
-    
-    # Obtener estados de las tareas
-    copy_raw_instance = dag_run.get_task_instance('copy_raw')
-    extension_instance = dag_run.get_task_instance('extend_dataset')
+    # revisar si existe un modelo entrenado
+    model_path = os.path.join(base_path, 'models', f"{model_name}.joblib")
+    no_model = not os.path.exists(model_path)
+
+    # revisar si se agregaron nuevos datos
+    ti = context['task_instance']
+    new_data_added = ti.xcom_pull(task_ids='extend_dataset', key='new_data_added', default=False)
     
     # Corroborar si alguna corrio con exito
-    if copy_raw_instance and extension_instance:
-        copy_raw_success = copy_raw_instance.state == 'success'
-        extension_success = extension_instance.state == 'success'
-
-        if copy_raw_success or extension_success:
-            return 'prepare_data'
-        else:
-            return 'not_train'
+    if no_model or new_data_added:
+        return 'prepare_data'
     else:
-        print(f"One of the tasks does not exist!!")
-        return None
+        return 'not_train'
 
 # === Formateo inicial de los datos ===
 # Supuesto: Solo se agregan nuevas transacciones. Es decir, no se agregan nuevos clientes ni productos.
@@ -151,42 +138,85 @@ def read_raw_parquet_files(data_path):
 
     return dataframes
 
-def calculate_client_quantiles(group, global_quantiles):
-    """Calcular cuantiles para un grupo de observaciones."""
-    if len(group) >= 5:     # Si ha comprado al menos 5 veces (cualquier producto)
-        return group.quantile([0.2, 0.4, 0.6, 0.8])
-    else:
-        # Pocos datos: usar cuantiles globales
-        return pd.Series(global_quantiles, index=[0.2, 0.4, 0.6, 0.8])
+#def calculate_client_quantiles(group, global_quantiles):
+"""Calcular cuantiles para un grupo de observaciones."""
+"""if len(group) >= 5:     # Si ha comprado al menos 5 veces (cualquier producto)
+    return group.quantile([0.2, 0.4, 0.6, 0.8])
+else:
+    # Pocos datos: usar cuantiles globales
+    return pd.Series(global_quantiles, index=[0.2, 0.4, 0.6, 0.8])"""
 
-def assign_priority(row,
+"""def assign_priority(row,
                     client_quantiles,
                     global_quantiles,
                     client_col='customer_id',
                     items_col='weekly_items'
-                    ):
-    """Asigna string de prioridad según cuantiles."""
-    customer_id = row[client_col]
-    items_value = row[items_col]
+                    ):"""
+"""Asigna string de prioridad según cuantiles."""
+"""customer_id = row[client_col]
+items_value = row[items_col]
+
+# Obtener cuantiles para este cliente (o usar globales)
+if customer_id in client_quantiles:
+    q20, q40, q60, q80 = client_quantiles[customer_id]
+else:
+    q20, q40, q60, q80 = global_quantiles
+
+# Asignar etiqueta según cuantil del cliente
+if items_value <= q20:
+    return 'Very Low'
+elif items_value <= q40:
+    return 'Low'
+elif items_value <= q60:
+    return 'Medium'
+elif items_value <= q80:
+    return 'High'
+else:
+    return 'Very High'"""
+
+def assign_priority(df, client_col='customer_id', items_col='weekly_items'):
+    """
+    Asigna prioridad de forma vectorizada usando cuantiles por cliente.
+    Mucho más rápido que apply().
+    """
+    # Calcular cuantiles globales como fallback
+    global_quantiles = df[items_col].quantile([0.2, 0.4, 0.6, 0.8])
     
-    # Obtener cuantiles para este cliente (o usar globales)
-    if customer_id in client_quantiles:
-        q20, q40, q60, q80 = client_quantiles[customer_id]
-    else:
-        q20, q40, q60, q80 = global_quantiles
+    # Contar observaciones por cliente
+    client_counts = df.groupby(client_col).size()
     
-    # Asignar etiqueta según cuantil del cliente
-    if items_value <= q20:
-        return 'Very Low'
-    elif items_value <= q40:
-        return 'Low'
-    elif items_value <= q60:
-        return 'Medium'
-    elif items_value <= q80:
-        return 'High'
-    else:
-        return 'Very High'
+    # Identificar clientes con suficientes datos (>=5 observaciones)
+    clients_with_data = client_counts[client_counts >= 5].index
     
+    # Calcular cuantiles solo para clientes con suficientes datos
+    client_quantiles = df[df[client_col].isin(clients_with_data)].groupby(client_col)[items_col].quantile([0.2, 0.4, 0.6, 0.8]).unstack()
+    client_quantiles.columns = ['q20', 'q40', 'q60', 'q80']
+    
+    # Hacer merge con los datos originales
+    df_with_quantiles = df.merge(client_quantiles, on=client_col, how='left')
+    
+    # Rellenar con cuantiles globales donde no hay suficientes datos
+    df_with_quantiles[['q20', 'q40', 'q60', 'q80']] = df_with_quantiles[['q20', 'q40', 'q60', 'q80']].fillna({
+        'q20': global_quantiles[0.2],
+        'q40': global_quantiles[0.4],
+        'q60': global_quantiles[0.6],
+        'q80': global_quantiles[0.8]
+    })
+    
+    # Asignar prioridades usando operaciones vectorizadas
+    conditions = [
+        df_with_quantiles[items_col] <= df_with_quantiles['q20'],
+        df_with_quantiles[items_col] <= df_with_quantiles['q40'],
+        df_with_quantiles[items_col] <= df_with_quantiles['q60'],
+        df_with_quantiles[items_col] <= df_with_quantiles['q80']
+    ]
+    
+    choices = ['Very Low', 'Low', 'Medium', 'High']
+    
+    priority = np.select(conditions, choices, default='Very High')
+    
+    return priority
+
 def prepare_data(data_path):
     """
     Lee los datos en bruto y los prepara para el modelamiento.
@@ -217,7 +247,7 @@ def prepare_data(data_path):
 
     # Juntar todo
     # Usamos inner join para preservar transacciones que tienen tanto informacion de clientes como productos.
-    df = pd.merge(df_t, df_c, on='transaction_id', how='inner')
+    df = pd.merge(df_t, df_c, on='order_id', how='inner')
 
     # 3. Corregir tipo de dato
     # Convertir columnas con tipo 'object' a 'category':
@@ -245,27 +275,31 @@ def prepare_data(data_path):
 
     # 5. Creación de variable objetivo
     # Creación de etiquetas
-    client_col='customer_id'
-    items_col='weekly_items'
+    #client_col='customer_id'
+    #items_col='weekly_items'
 
-    client_quantiles = {}
-    global_quantiles = weekly_data[items_col].quantile([0.2, 0.4, 0.6, 0.8]).values     # Cuantiles globales como fallback
+    #client_quantiles = {}
+    #global_quantiles = weekly_data[items_col].quantile([0.2, 0.4, 0.6, 0.8]).values     # Cuantiles globales como fallback
 
     # Calcular cuantiles por cliente
-    client_quantiles_df = weekly_data.groupby(client_col)[items_col].apply(
-        lambda x: calculate_client_quantiles(x, global_quantiles))
+    """client_quantiles_df = weekly_data.groupby(client_col)[items_col].apply(
+        lambda x: calculate_client_quantiles(x, global_quantiles))"""
     
     # Convertir a diccionario para acceso rápido
-    for customer_id, quantiles in client_quantiles_df.groupby(level=0):
-        client_quantiles[customer_id] = quantiles.values
+    """for customer_id, quantiles in client_quantiles_df.groupby(level=0):
+        client_quantiles[customer_id] = quantiles.values"""
     
     # Aplicar función a cada fila
-    weekly_data['priority'] = weekly_data.apply(
+    """weekly_data['priority'] = weekly_data.apply(
         lambda row: assign_priority(row, client_quantiles, global_quantiles),
-        axis=1)
+        axis=1)"""
+    weekly_data['priority'] = assign_priority(weekly_data, 
+                                              client_col='customer_id',
+                                              items_col='weekly_items')
     
     # 6. Eliminar columnas que no se usaran
-    weekly_data = weekly_data.drop(columns=['X', 'Y', 'order_id', 'region_id', 'zone_id', 'num_visit_per_week', 'category', 'purchase_date', 'weekly_items'])
+    weekly_data = weekly_data.drop(columns=['X', 'Y', 'order_id', 'region_id', 'zone_id', 'num_visit_per_week',
+                                            'category', 'purchase_date', 'weekly_items'])
 
     # 7. Guardar
     weekly_data.to_csv(os.path.join(transformed_path, 'weekly_data.csv'), index=False)
@@ -275,6 +309,8 @@ def prepare_data(data_path):
 # ====== Holdout ======
 def split_data(data_path, random_state=42):
     """Separar datos preparados en conjuntos de entrenamiento, validación y prueba."""
+    from sklearn.model_selection import train_test_split
+
     transformed_data_path = os.path.join(data_path, 'transformed', 'weekly_data.csv')
     weekly_data = pd.read_csv(transformed_data_path)
 
@@ -417,6 +453,9 @@ def create_pipeline(numerical_cols=['num_deliver_per_week', 'size', 'week'],
     Se procesa numericas, categoricas e ids por separado.
     No se imputan outliers, pues se presentan principalmente en variables de id.
     """
+    from sklearn.compose import ColumnTransformer
+    from sklearn.pipeline import Pipeline
+
     # Pipeline
     full_pipeline = Pipeline([
 
@@ -487,6 +526,10 @@ def preprocess_data(base_path, target_column='priority'):
 # ====== Optimización ======
 def optimize_model(base_path, target_column='priority', n_trials=50, model_name='KNN_optimo', **context):
     """Optimiza parámetros de clasificador K-Neighbors con Optuna y registra en MLFlow."""
+    from sklearn.metrics import f1_score
+    import optuna
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+
     data_path = os.path.join(base_path, 'data')
     preprocessed_path = os.path.join(data_path, 'preprocessed')
 
@@ -546,6 +589,11 @@ def optimize_model(base_path, target_column='priority', n_trials=50, model_name=
 # ====== Evaluación e interpretación ======
 def evaluate_and_interpret_model(base_path, target_column='priority', model_name='KNN_optimo', n_shap_samples=500, **context):
     """Evalúa el modelo en el conjunto de test y registra métricas"""
+    from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
+    import shap
+
+    import matplotlib.pyplot as plt
+
     best_params = context['ti'].xcom_pull(task_ids='optimize_model')
 
     # Cargar todos los datos
@@ -689,20 +737,6 @@ def train_final_model(base_path, target_column='priority', model_name='KNN_optim
 # ==================================================
 # ====== CIERRE Y PREPARACIÓN PARA DESPLIEGUE ======
 # ==================================================
-def save_library_versions():
-    # Guardar versiones de librerías
-
-    with open("library_versions.txt", "w") as f:
-        f.write(f"python: {sys.version}\n")
-        f.write(f"optuna: {optuna.__version__}\n")
-        f.write(f"mlflow: {mlflow.__version__}\n")
-        f.write(f"shap: {shap.__version__}\n")
-        f.write(f"pandas: {pd.__version__}\n")
-        f.write(f"numpy: {np.__version__}\n")
-        f.write(f"matplotlib: {plt.matplotlib.__version__}\n")
-        f.write(f"joblib: {joblib.__version__}\n")
-        f.write(f"sklearn: {Pipeline.__module__.split('.')[0]}\n")
-        #f.write(f"gradio: {gr.__version__}\n")
 
 # ==================================================
 # ====== Detección de drift (no implementado) ======
@@ -870,18 +904,18 @@ def predict_next_week_all_customers(base_path, model_name='KNN_optimo', **contex
 
     return predictions
 
-def gradio_interface(**context):
-    """
-    Despliega modelo en gradio.
-    """
-    base_path = context['ti'].xcom_pull(task_ids='create_folders')
-    model_path = context['ti'].xcom_pull(task_ids='optimize_model')
+#def gradio_interface(**context):
+"""
+Despliega modelo en gradio.
+"""
+"""base_path = context['ti'].xcom_pull(task_ids='create_folders')
+model_path = context['ti'].xcom_pull(task_ids='optimize_model')
 
-    interface = gr.Interface(
-        fn=lambda file: predict_next_week(file, model_path, base_path),
-        inputs=gr.File(label="Ingresa un ID de cliente"),
-        outputs="json",
-        title="Product Priority Prediction",
-        description="Ingresa un ID de cliente para obtener una predicción de la prioridad de compra para cada producto."
-    )
-    interface.launch(share=True)
+interface = gr.Interface(
+    fn=lambda file: predict_next_week(file, model_path, base_path),
+    inputs=gr.File(label="Ingresa un ID de cliente"),
+    outputs="json",
+    title="Product Priority Prediction",
+    description="Ingresa un ID de cliente para obtener una predicción de la prioridad de compra para cada producto."
+)
+interface.launch(share=True)"""

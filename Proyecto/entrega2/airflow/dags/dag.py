@@ -4,9 +4,11 @@ import os
 from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.empty import EmptyOperator
-from airflow.operators.bash import BashOperator
-from airflow.models import TaskInstance
-from airflow.models import Variable
+from airflow.providers.standard.operators.bash import BashOperator
+
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'plugins'))
 
 from decision_functions import (
     assert_folders,
@@ -21,13 +23,10 @@ from decision_functions import (
     optimize_model,
     evaluate_and_interpret_model,
     train_final_model,
-    save_library_versions,
+    #save_library_versions,
     calculate_week_number,
     predict_next_week_all_customers
 )
-
-import logging
-logger = logging.getLogger(__name__)
 
 # Ruta base para almacenar outputs
 AIRFLOW_HOME = os.environ.get('AIRFLOW_HOME', '/opt/airflow')
@@ -51,10 +50,10 @@ default_args = {
 
 # Inicializar un DAG con fecha de inicio el 31 de diciembre de 2024, ejecución manual y **sin backfill**
 with DAG(
-    dag_id='ml_pipeline_with_drift_detection',
+    dag_id='product_purchase_prediction',
     default_args=default_args,
     start_date=datetime(2024, 12, 31),
-    schedule_interval='@weekly',        # Reentrenamiento semanal
+    schedule='@weekly',        # Reentrenamiento semanal
     catchup=False       # Sin backfill
 ) as dag:
     
@@ -85,7 +84,8 @@ with DAG(
     revisar_nuevos_datos = BranchPythonOperator(
         task_id='check_new_data',
         python_callable=check_new_data,
-        op_kwargs={'data_path': DATA_PATH}
+        op_kwargs={'data_path': DATA_PATH},
+        trigger_rule='none_failed'
     )
 
     # Si hay nuevos datos: extender dataset
@@ -101,11 +101,13 @@ with DAG(
     # =======================================================
     # 2. PROCESAMIENTO DE DATOS 
     # =======================================================
-    
+
     # === Decidir si es necesario procesar datos y entrenar modelo ===
     decidir_entrenamiento = PythonOperator(
         task_id='decide_training',
         python_callable=decide_if_train,
+        op_kwargs={'base_path': BASE_PATH,
+                   'model_name': MODEL_NAME},
         trigger_rule='none_failed'
     )
 
@@ -115,21 +117,21 @@ with DAG(
     preparar_datos = PythonOperator(
         task_id='prepare_data',
         python_callable=prepare_data,
-        p_kwargs={'data_path': DATA_PATH}
+        op_kwargs={'data_path': DATA_PATH}
     )
 
     # === Holdout ===
     split_datos = PythonOperator(
         task_id='split_data',
         python_callable=split_data,
-        p_kwargs={'data_path': DATA_PATH}
+        op_kwargs={'data_path': DATA_PATH}
     )
     
     # === Preprocesamiento ===
     preprocesar = PythonOperator(
         task_id='preprocess_data',
         python_callable=preprocess_data,
-        p_kwargs={'base_path': BASE_PATH}
+        op_kwargs={'base_path': BASE_PATH}
     )
 
     # =======================================================
@@ -173,17 +175,17 @@ with DAG(
     # =======================================================
     # 4. FINALIZACIÓN
     # =======================================================
-    guardar_versiones = PythonOperator(
+    """guardar_versiones = PythonOperator(
         task_id='save_library_versions',
         python_callable=save_library_versions,
         trigger_rule='none_failed' # Se ejecuta aunque se haya saltado el entrenamiento
-    )
+    )"""
 
     # Calcular numero de semana para prediccón
     calcular_semana = PythonOperator(
         task_id='calculate_week',
         python_callable=calculate_week_number,
-        provide_context=True
+        trigger_rule='none_failed'
     )
 
     predecir = PythonOperator(
@@ -217,11 +219,12 @@ with DAG(
     decidir_entrenamiento >> [preparar_datos, no_entrenar]
 
     # Si se toma la rama "preparar datos", se sigue todo el flujo de procesamiento de datos, entrenamiento, etc.
-    preparar_datos >> split_datos >> preprocesar >> optimizar >> [evaluar_interpretar, entrenar_modelo_final] >> guardar_versiones
+    preparar_datos >> split_datos >> preprocesar >> optimizar >> [evaluar_interpretar, entrenar_modelo_final] >> calcular_semana
     
     # Si se toma la rama "pasar_3", se pasa directo a la tarea final
-    no_entrenar >> guardar_versiones 
+    no_entrenar >> calcular_semana
 
     # Predecri y fin del pipeline
-    guardar_versiones >> calcular_semana >> predecir >> end
+    calcular_semana >> predecir >> end
     
+
