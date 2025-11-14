@@ -245,9 +245,10 @@ def prepare_data(data_path):
     clientes_unicos = df_c[['customer_id', 'customer_type', 'num_deliver_per_week']].copy().drop_duplicates()
     clientes_unicos.to_csv(os.path.join(transformed_path, 'unique_clients.csv'), index=False)
 
-    # Juntar todo
-    # Usamos inner join para preservar transacciones que tienen tanto informacion de clientes como productos.
-    df = pd.merge(df_t, df_c, on='order_id', how='inner')
+    # Cruuzar todo
+    # Preservamos transacciones que tienen tanto informacion de clientes como productos.
+    df0 = pd.merge(transacciones, clientes, on='customer_id', how='left')
+    df = pd.merge(df0, productos, on='product_id', how='left')
 
     # 3. Corregir tipo de dato
     # Convertir columnas con tipo 'object' a 'category':
@@ -274,25 +275,7 @@ def prepare_data(data_path):
     weekly_data.rename(columns={'items': 'weekly_items'}, inplace=True)
 
     # 5. Creación de variable objetivo
-    # Creación de etiquetas
-    #client_col='customer_id'
-    #items_col='weekly_items'
-
-    #client_quantiles = {}
-    #global_quantiles = weekly_data[items_col].quantile([0.2, 0.4, 0.6, 0.8]).values     # Cuantiles globales como fallback
-
     # Calcular cuantiles por cliente
-    """client_quantiles_df = weekly_data.groupby(client_col)[items_col].apply(
-        lambda x: calculate_client_quantiles(x, global_quantiles))"""
-    
-    # Convertir a diccionario para acceso rápido
-    """for customer_id, quantiles in client_quantiles_df.groupby(level=0):
-        client_quantiles[customer_id] = quantiles.values"""
-    
-    # Aplicar función a cada fila
-    """weekly_data['priority'] = weekly_data.apply(
-        lambda row: assign_priority(row, client_quantiles, global_quantiles),
-        axis=1)"""
     weekly_data['priority'] = assign_priority(weekly_data, 
                                               client_col='customer_id',
                                               items_col='weekly_items')
