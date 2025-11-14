@@ -6,6 +6,7 @@ from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.bash import BashOperator
 from airflow.models import TaskInstance
+from airflow.models import Variable
 
 from decision_functions import (
     assert_folders,
@@ -20,8 +21,13 @@ from decision_functions import (
     optimize_model,
     evaluate_and_interpret_model,
     train_final_model,
-    save_library_versions
+    save_library_versions,
+    calculate_week_number,
+    predict_next_week_all_customers
 )
+
+import logging
+logger = logging.getLogger(__name__)
 
 # Ruta base para almacenar outputs
 AIRFLOW_HOME = os.environ.get('AIRFLOW_HOME', '/opt/airflow')
@@ -29,8 +35,6 @@ BASE_PATH = AIRFLOW_HOME
 DATA_PATH = os.path.join(AIRFLOW_HOME, 'data')
 
 MODEL_NAME = "product_priority_model"
-
-
 
 # === Definición del DAG ===
 assert_folders(AIRFLOW_HOME)
@@ -50,7 +54,7 @@ with DAG(
     dag_id='ml_pipeline_with_drift_detection',
     default_args=default_args,
     start_date=datetime(2024, 12, 31),
-    schedule_interval='@weekly',  # Reentrenamiento semanal
+    schedule_interval='@weekly',        # Reentrenamiento semanal
     catchup=False       # Sin backfill
 ) as dag:
     
@@ -158,7 +162,7 @@ with DAG(
 
     # === Entrenar con todos los datos ===
     entrenar_modelo_final = PythonOperator(
-        task_id='evaluate_and_interpret',
+        task_id='train_final_model',
         python_callable=train_final_model,
         op_kwargs={
             'base_path': BASE_PATH,
@@ -169,11 +173,26 @@ with DAG(
     # =======================================================
     # 4. FINALIZACIÓN
     # =======================================================
-    
     guardar_versiones = PythonOperator(
         task_id='save_library_versions',
         python_callable=save_library_versions,
         trigger_rule='none_failed' # Se ejecuta aunque se haya saltado el entrenamiento
+    )
+
+    # Calcular numero de semana para prediccón
+    calcular_semana = PythonOperator(
+        task_id='calculate_week',
+        python_callable=calculate_week_number,
+        provide_context=True
+    )
+
+    predecir = PythonOperator(
+        task_id='predict',
+        python_callable=predict_next_week_all_customers,
+        op_kwargs={
+            'base_path': BASE_PATH,
+            'model_name': MODEL_NAME
+        }
     )
 
     end = EmptyOperator(
@@ -203,6 +222,6 @@ with DAG(
     # Si se toma la rama "pasar_3", se pasa directo a la tarea final
     no_entrenar >> guardar_versiones 
 
-    # Fin del pipeline
-    guardar_versiones >> end
+    # Predecri y fin del pipeline
+    guardar_versiones >> calcular_semana >> predecir >> end
     

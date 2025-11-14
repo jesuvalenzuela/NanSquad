@@ -702,7 +702,7 @@ def save_library_versions():
         f.write(f"matplotlib: {plt.matplotlib.__version__}\n")
         f.write(f"joblib: {joblib.__version__}\n")
         f.write(f"sklearn: {Pipeline.__module__.split('.')[0]}\n")
-        f.write(f"gradio: {gr.__version__}\n")
+        #f.write(f"gradio: {gr.__version__}\n")
 
 # ==================================================
 # ====== Detección de drift (no implementado) ======
@@ -810,15 +810,13 @@ def prepare_data_for_prediction(week, customer_id, base_path):
                         'brand', 'sub_category', 'segment', 'package', 'size']]
 
 
-def predict_next_week(customer_id, model_path, base_path):
+def predict(week, customer_id, base_path, model_name='KNN_optimo'):
     """Entrega prediccion para la semana siguiente para el cliente especificado."""
 
-    # transformar
-    transformed_path = os.path.join(base_path, "data", "transformed")
-    weekly_data =  pd.read_csv(os.path.join(transformed_path, 'weekly_data.csv'))
+    model_path = os.path.join(base_path, 'models', f'{model_name}.joblib')
 
-    max_week = weekly_data['week'].max()
-    input_data = prepare_data_for_prediction(max_week + 1, customer_id, base_path)
+    # transformar
+    input_data = prepare_data_for_prediction(week, customer_id, base_path)
 
     # preprocesar
     preprocessor_path = os.path.join(base_path, 'models', f'preprocessor.joblib')
@@ -834,6 +832,43 @@ def predict_next_week(customer_id, model_path, base_path):
           {result}""")
     return result
 
+# Calcular número de "próxima semana"
+def calculate_week_number(**context):
+    """
+    Calcula el número de semana basándose en:
+    - Semana 52: fecha de inicio del DAG (31-dic-2024)
+    - Incrementa +1 por cada semana desde entonces
+    """
+    execution_date = context['execution_date']
+    
+    # Fecha de inicio (semana 52)
+    start_date = datetime(2024, 12, 31)
+    
+    # Calcular semanas transcurridas desde el inicio
+    weeks_elapsed = (execution_date - start_date).days // 7
+    
+    # Semana base (52) + semanas transcurridas + 1
+    next_week = 52 + weeks_elapsed + 1
+
+    # Guardar en XCom para usar en la tarea de predicción
+    context['task_instance'].xcom_push(key='next_week', value=next_week)
+    
+    return next_week
+
+
+def predict_next_week_all_customers(base_path, model_name='KNN_optimo', **context):
+    ti = context['task_instance']
+    next_week = ti.xcom_pull(task_ids='calculate_week', key='next_week')
+
+    clients_path = os.path.join(base_path, 'data', 'transformed', 'unique_clients.csv')
+    clients_df = pd.read_csv(clients_path)
+    client_ids = clients_df['customer_id'].values
+
+    predictions = {}
+    for client in client_ids:
+        predictions[client] = predict(next_week, client, base_path, model_name)
+
+    return predictions
 
 def gradio_interface(**context):
     """
