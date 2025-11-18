@@ -599,7 +599,7 @@ def load_best_params(base_path, **context):
     return best_params
 
 # ====== Optimización ======
-def optimize_model(base_path, target_column='priority', n_trials=30, model_name='KNN_optimo', **context):
+def optimize_model(base_path, target_column='priority', n_trials=30, model_name='product_priority_model', **context):
     """Optimiza parámetros de clasificador K-Neighbors con Optuna y registra en MLFlow."""
     from sklearn.metrics import f1_score
     import optuna
@@ -686,13 +686,19 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
     return best_params
 
 # ====== Evaluación e interpretación ======
-def evaluate_and_interpret_model(base_path, target_column='priority', model_name='KNN_optimo', n_shap_samples=100, **context):
+def evaluate_and_interpret_model(base_path, target_column='priority', model_name='product_priority_model', n_shap_samples=100, **context):
     """Evalúa el modelo en el conjunto de test y registra métricas"""
     from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
     import shap
     import matplotlib.pyplot as plt
 
+    # Intentar obtener params de optimize_model primero, si no existe entonces de load_best_params
     best_params = context['ti'].xcom_pull(task_ids='optimize_model')
+    if best_params is None:
+        best_params = context['ti'].xcom_pull(task_ids='load_best_params')
+
+    if best_params is None:
+        raise ValueError("No se pudieron obtener los hiperparámetros. Verifica que optimize_model o load_best_params se hayan ejecutado correctamente.")
 
     # Cargar todos los datos
     preprocessed_path = os.path.join(base_path, 'data', 'preprocessed')
@@ -796,9 +802,15 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
     return mlruns_path
 
 # ====== Entrenar modelo final con todos los datos ======
-def train_final_model(base_path, target_column='priority', model_name='KNN_optimo', **context):
+def train_final_model(base_path, target_column='priority', model_name='product_priority_model', **context):
     """Entrena el modelo con todos los datos, usando los parámetros optimos encontrados en la optimizacion."""
+    # Intentar obtener params de optimize_model primero, si no existe entonces de load_best_params
     best_params = context['ti'].xcom_pull(task_ids='optimize_model')
+    if best_params is None:
+        best_params = context['ti'].xcom_pull(task_ids='load_best_params')
+
+    if best_params is None:
+        raise ValueError("No se pudieron obtener los hiperparámetros. Verifica que optimize_model o load_best_params se hayan ejecutado correctamente.")
 
     # Configurar MLflow
     mlruns_path = os.path.join(base_path, 'mlruns')
@@ -878,7 +890,7 @@ def prepare_data_for_prediction(week, customer_id, base_path):
                         'brand', 'sub_category', 'segment', 'package', 'size']]
 
 
-def predict(week, customer_id, base_path, model_name='KNN_optimo'):
+def predict(week, customer_id, base_path, model_name='product_priority_model'):
     """Entrega prediccion para la semana siguiente para el cliente especificado."""
 
     model_path = os.path.join(base_path, 'models', f'{model_name}.joblib')
@@ -924,7 +936,7 @@ def calculate_week_number(**context):
     return next_week
 
 
-def predict_next_week_all_customers(base_path, model_name='KNN_optimo', **context):
+def predict_next_week_all_customers(base_path, model_name='product_priority_model', **context):
     ti = context['task_instance']
     next_week = ti.xcom_pull(task_ids='calculate_week', key='next_week')
 

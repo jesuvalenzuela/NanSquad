@@ -42,7 +42,7 @@ def prepare_data_for_prediction(week, customer_id, base_path):
                         'brand', 'sub_category', 'segment', 'package', 'size']]
 
 
-def predict(week, customer_id, base_path, model_name='KNN_optimo'):
+def predict(week, customer_id, base_path, model_name='product_priority_model'):
     """Entrega prediccion para la semana siguiente para el cliente especificado."""
 
     model_path = os.path.join(base_path, 'models', f'{model_name}.joblib')
@@ -90,7 +90,7 @@ def calculate_week_number(execution_date=None):
     
     return next_week
 
-def predict_next_week_all_customers(base_path, model_name='KNN_optimo'):
+def predict_next_week_all_customers(base_path, model_name='product_priority_model'):
     next_week = calculate_week_number()
 
     clients_path = os.path.join(base_path, 'data', 'transformed', 'unique_clients.csv')
