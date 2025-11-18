@@ -1,3 +1,4 @@
-.DS_Store__pycache__/
+.DS_Store
+__pycache__/
 Proyecto/entrega2/airflow/mlruns/
 Proyecto/entrega2/airflow/models/
