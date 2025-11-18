@@ -34,16 +34,11 @@ flowchart TD
     %% Bifurcación en paralelo
     Optimize --> Evaluate[Evaluate and Interpret<br/>SHAP + MLflow]
     Optimize --> TrainFinal[Train Final Model<br/>Con todos los datos]
-    
+
     %% Convergencia final
-    Evaluate --> SaveVer[Save Library<br/>Versions]
-    TrainFinal --> SaveVer
-    NotTrain --> SaveVer
-    
-    %% Nuevas tareas de predicción
-    SaveVer --> CalcWeek[Calculate Week<br/>Determinar semana actual]
-    CalcWeek --> Predict[Predict<br/>Generar predicciones<br/>por cliente]
-    Predict --> End([End Pipeline])
+    Evaluate --> End([End Pipeline])
+    TrainFinal --> End
+    NotTrain --> End
     
     %% Estilos
     classDef startEnd fill:#90EE90,stroke:#333,stroke-width:3px
@@ -51,10 +46,10 @@ flowchart TD
     classDef process fill:#87CEEB,stroke:#333,stroke-width:2px
     classDef empty fill:#D3D3D3,stroke:#333,stroke-width:1px
     classDef important fill:#FF6B6B,stroke:#333,stroke-width:2px
-    
+
     class Start,End startEnd
     class CheckHist,CheckNew,DecideTrain decision
-    class PrepData,Split,Preproc,Optimize,Evaluate,TrainFinal,SaveVer,CalcWeek,Predict process
+    class PrepData,Split,Preproc,Optimize,Evaluate,TrainFinal process
     class Pass1,Pass2,NotTrain empty
     class CopyRaw,ExtendDS important
 ```
@@ -71,24 +66,22 @@ flowchart TD
 
 ### Escenario 1: Primera Ejecución
 ```
-Start → Check Historical (no existe) → Copy Raw → Check New (no hay) → 
-Pass 2 → Decide Training (sí) → Prepare Data → Split → Preprocess → 
-Optimize → [Evaluate + Train Final] → Save Versions → Calculate Week → 
-Predict → End
+Start → Check Historical (no existe) → Copy Raw → Check New (no hay) →
+Pass 2 → Decide Training (sí) → Prepare Data → Split → Preprocess →
+Optimize → [Evaluate + Train Final] → End
 ```
 
 ### Escenario 2: Ejecución Regular con Datos Nuevos
 ```
-Start → Check Historical (existe) → Pass 1 → Check New (hay nuevos) → 
-Extend Dataset → Decide Training (sí) → Prepare Data → ... → Save Versions →
-Calculate Week → Predict → End
+Start → Check Historical (existe) → Pass 1 → Check New (hay nuevos) →
+Extend Dataset → Decide Training (sí) → Prepare Data → Split → Preprocess →
+Optimize → [Evaluate + Train Final] → End
 ```
 
 ### Escenario 3: Ejecución Regular sin Datos Nuevos
 ```
-Start → Check Historical (existe) → Pass 1 → Check New (no hay) → 
-Pass 2 → Decide Training (no) → Not Train → Save Versions → 
-Calculate Week → Predict → End
+Start → Check Historical (existe) → Pass 1 → Check New (no hay) →
+Pass 2 → Decide Training (no) → Not Train → End
 ```
 
 ## Puntos Clave del Diseño
@@ -101,14 +94,13 @@ Calculate Week → Predict → End
 2. **Paralelización**:
    - `evaluate_and_interpret` y `train_final_model` se ejecutan en paralelo después de `optimize_model`
 
-3. **Predicción siempre se ejecuta**:
-   - Las tareas `calculate_week` y `predict` se ejecutan **siempre** al final del pipeline, independientemente de si se entrenó el modelo o no
-   - `calculate_week`: Determina la semana actual para la que se generarán predicciones
-   - `predict`: Genera las predicciones de productos prioritarios por cliente usando el modelo más reciente
+3. **Predicciones on-demand**:
+   - Las predicciones se generan a través de la aplicación web, no en el DAG
+   - El DAG se enfoca exclusivamente en entrenamiento y reentrenamiento del modelo
 
 4. **Trigger Rules**:
    - `decide_training` usa `none_failed` para ejecutarse si cualquier rama upstream tuvo éxito
-   - `save_library_versions` también usa `none_failed` para ejecutarse siempre
+   - `end_pipeline` también usa `none_failed` para ejecutarse siempre
 ```
 
 ---
@@ -120,12 +112,10 @@ flowchart LR
     A[📥 Inicio] --> B[🔍 Gestión<br/>de Datos]
     B --> C{¿Entrenar?}
     C -->|Sí| D[⚙️ Preparación<br/>de Datos]
-    C -->|No| E[💾 Guardar<br/>Versiones]
+    C -->|No| H[✅ Fin]
     D --> F[🎯 Optimización<br/>+ Evaluación]
-    F --> E
-    E --> G[🔮 Predicción]
-    G --> H[✅ Fin]
-    
+    F --> H
+
     classDef phase fill:#4A90E2,stroke:#333,color:#fff
-    class B,D,F,G phase
+    class B,D,F phase
 ```

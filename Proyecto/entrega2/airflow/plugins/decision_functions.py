@@ -506,11 +506,104 @@ def preprocess_data(base_path, target_column='priority'):
 # ====== OPTIMIZACIÓN, EVALUACIÓN E INTERPRETACIÓN DEL MODELO ======
 # ==================================================================
 
+# ====== Decisión inteligente de optimización ======
+def should_optimize_hyperparameters(base_path, reoptimize_weeks=4, **context):
+    """
+    Función de branching: decide si optimizar hiperparámetros o cargar existentes.
+
+    Optimiza si:
+    1. No existe archivo de hiperparámetros óptimos, O
+    2. Han pasado >= reoptimize_weeks semanas desde última optimización, O
+    3. Variable de entorno FORCE_REOPTIMIZE='true'
+
+    Args:
+        base_path: Ruta base del proyecto
+        reoptimize_weeks: Número de semanas para forzar re-optimización (default: 4)
+
+    Returns:
+        'optimize_model' si debe optimizar, 'load_best_params' si debe cargar
+    """
+    import json
+
+    params_file = os.path.join(base_path, 'models', 'best_hyperparameters.json')
+    force_reoptimize = os.getenv('FORCE_REOPTIMIZE', 'false').lower() == 'true'
+
+    # Caso 1: Forzar re-optimización
+    if force_reoptimize:
+        print("FORCE_REOPTIMIZE=true detectado. Ejecutando optimización...")
+        return 'optimize_model'
+
+    # Caso 2: No existen hiperparámetros previos
+    if not os.path.exists(params_file):
+        print("No se encontraron hiperparámetros óptimos. Ejecutando optimización inicial...")
+        return 'optimize_model'
+
+    # Caso 3: Verificar semanas desde última optimización
+    try:
+        with open(params_file, 'r') as f:
+            metadata = json.load(f)
+
+        weeks_since = metadata.get('weeks_since_last_optimization', 0)
+
+        # Incrementar contador de semanas
+        weeks_since += 1
+        metadata['weeks_since_last_optimization'] = weeks_since
+
+        # Guardar contador actualizado
+        with open(params_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+
+        if weeks_since >= reoptimize_weeks:
+            print(f"Han pasado {weeks_since} semanas desde última optimización. Re-optimizando...")
+            return 'optimize_model'
+        else:
+            print(f"Usando hiperparámetros existentes ({weeks_since}/{reoptimize_weeks} semanas)")
+            return 'load_best_params'
+
+    except Exception as e:
+        print(f"Error leyendo metadata: {e}. Ejecutando optimización por seguridad...")
+        return 'optimize_model'
+
+def load_best_params(base_path, **context):
+    """
+    Carga hiperparámetros óptimos desde archivo JSON.
+
+    Args:
+        base_path: Ruta base del proyecto
+
+    Returns:
+        dict: Diccionario con los mejores hiperparámetros
+    """
+    import json
+
+    params_file = os.path.join(base_path, 'models', 'best_hyperparameters.json')
+
+    if not os.path.exists(params_file):
+        raise FileNotFoundError(
+            f"No se encontró archivo de hiperparámetros en {params_file}. "
+            "Ejecute optimize_model primero."
+        )
+
+    with open(params_file, 'r') as f:
+        metadata = json.load(f)
+
+    best_params = metadata.get('best_params')
+    best_f1 = metadata.get('best_f1_score', 'N/A')
+    opt_date = metadata.get('optimization_date', 'N/A')
+
+    print(f"Hiperparámetros cargados desde {params_file}")
+    print(f"  - Optimizados el: {opt_date}")
+    print(f"  - Mejor F1-score: {best_f1}")
+    print(f"  - Parámetros: {best_params}")
+
+    return best_params
+
 # ====== Optimización ======
-def optimize_model(base_path, target_column='priority', n_trials=50, model_name='KNN_optimo', **context):
+def optimize_model(base_path, target_column='priority', n_trials=30, model_name='KNN_optimo', **context):
     """Optimiza parámetros de clasificador K-Neighbors con Optuna y registra en MLFlow."""
     from sklearn.metrics import f1_score
     import optuna
+    import json
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     data_path = os.path.join(base_path, 'data')
@@ -534,47 +627,69 @@ def optimize_model(base_path, target_column='priority', n_trials=50, model_name=
 
     # Función objetivo para Optuna
     def objective(trial):
+        # Espacio de búsqueda reducido y más enfocado
         params = {
-            "n_neighbors": trial.suggest_int("n_neighbors", 3, 75),
+            "n_neighbors": trial.suggest_int("n_neighbors", 5, 30),
             "weights": trial.suggest_categorical("weights", ["uniform", "distance"]),
             "p": trial.suggest_int("p", 1, 2),      # 1=Manhattan, 2=Euclid
-            "leaf_size": trial.suggest_int("leaf_size", 15, 60),
-            "algorithm": trial.suggest_categorical("algorithm", ["auto","ball_tree","kd_tree"])
+            "leaf_size": trial.suggest_int("leaf_size", 20, 40),
+            "algorithm": trial.suggest_categorical("algorithm", ["ball_tree", "kd_tree"])
         }
-        
+
         # Nombre interpretable para el run
         run_name = f"KNN_nn{params['n_neighbors']}_w{params['weights']}_p{params['p']}"
-        
-        # Registrar en MLFlow
+
+        # Registrar en MLFlow (reducido: solo params y métrica, sin modelo)
         with mlflow.start_run(run_name=run_name):
             clf = KNeighborsClassifier(**params)
             clf.fit(X_train, y_train)
-            
+
             # Métricas en validación
             y_pred_val = clf.predict(X_val)
             f1 = f1_score(y_val, y_pred_val, average="macro")
 
-            # Registrar en MLflow
+            # Registrar en MLflow (sin guardar modelo para ahorrar tiempo)
             mlflow.log_params(params)
             mlflow.log_metric("valid_f1", f1)
-            mlflow.sklearn.log_model(clf, "model")
-        
+
         return f1
-    
-    # Ejecutar optimización
-    study = optuna.create_study(direction='maximize', study_name=f"{model_name}_study")
+
+    # Ejecutar optimización con pruner para detener trials no prometedores
+    study = optuna.create_study(
+        direction='maximize',
+        study_name=f"{model_name}_study",
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=0)
+    )
     study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
     # Obtener mejores parámetros
     best_params = study.best_params
+
+    # Guardar mejores parámetros en archivo JSON
+    params_file = os.path.join(base_path, 'models', 'best_hyperparameters.json')
+
+    # Guardar metadata de optimización
+    metadata = {
+        'best_params': best_params,
+        'best_f1_score': study.best_value,
+        'optimization_date': execution_date,
+        'n_trials': n_trials,
+        'weeks_since_last_optimization': 0
+    }
+
+    with open(params_file, 'w') as f:
+        json.dump(metadata, f, indent=2)
+
+    print(f"Hiperparámetros óptimos guardados en {params_file}")
+    print(f"Mejor F1-score: {study.best_value:.4f}")
+
     return best_params
 
 # ====== Evaluación e interpretación ======
-def evaluate_and_interpret_model(base_path, target_column='priority', model_name='KNN_optimo', n_shap_samples=500, **context):
+def evaluate_and_interpret_model(base_path, target_column='priority', model_name='KNN_optimo', n_shap_samples=100, **context):
     """Evalúa el modelo en el conjunto de test y registra métricas"""
     from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
     import shap
-
     import matplotlib.pyplot as plt
 
     best_params = context['ti'].xcom_pull(task_ids='optimize_model')
@@ -584,88 +699,95 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
     train_df = pd.read_csv(os.path.join(preprocessed_path, 'train.csv'))
     val_df = pd.read_csv(os.path.join(preprocessed_path, 'val.csv'))
     test_df = pd.read_csv(os.path.join(preprocessed_path, 'test.csv'))
-    
+
     # Preparar datasets
     X_train, y_train = train_df.drop(columns=[target_column]), train_df[target_column]
     X_val, y_val = val_df.drop(columns=[target_column]), val_df[target_column]
     X_test, y_test = test_df.drop(columns=[target_column]), test_df[target_column]
 
-    # Configurar MFlow
+    # Configurar MLflow
     mlruns_path = os.path.join(base_path, 'mlruns')
     mlflow.set_tracking_uri(f"file://{mlruns_path}")
-    
-    experiment_name = "Model_Evaluation_and_Interpretation"
-    mlflow.set_experiment(experiment_name)
+    mlflow.set_experiment("Model_Evaluation_and_Interpretation")
 
     execution_date = context['ds']
     with mlflow.start_run(run_name=f"model_evaluation_and_interpretation_{execution_date}"):
         # Entrenar con mejores parámetros
         best_model = KNeighborsClassifier(**best_params)
         best_model.fit(X_train, y_train)
-        
+
         # Evaluar en todos los sets
         metrics = {}
-        
+
         # Train metrics
         y_pred_train = best_model.predict(X_train)
         metrics['train_f1'] = f1_score(y_train, y_pred_train, average="macro")
         metrics['train_accuracy'] = accuracy_score(y_train, y_pred_train)
         metrics['train_precision'] = precision_score(y_train, y_pred_train, average="macro", zero_division=0)
         metrics['train_recall'] = recall_score(y_train, y_pred_train, average="macro", zero_division=0)
-        
+
         # Validation metrics
         y_pred_val = best_model.predict(X_val)
         metrics['valid_f1'] = f1_score(y_val, y_pred_val, average="macro")
         metrics['valid_accuracy'] = accuracy_score(y_val, y_pred_val)
         metrics['valid_precision'] = precision_score(y_val, y_pred_val, average="macro", zero_division=0)
         metrics['valid_recall'] = recall_score(y_val, y_pred_val, average="macro", zero_division=0)
-        
+
         # Test metrics
         y_pred_test = best_model.predict(X_test)
         metrics['test_f1'] = f1_score(y_test, y_pred_test, average="macro")
         metrics['test_accuracy'] = accuracy_score(y_test, y_pred_test)
         metrics['test_precision'] = precision_score(y_test, y_pred_test, average="macro", zero_division=0)
         metrics['test_recall'] = recall_score(y_test, y_pred_test, average="macro", zero_division=0)
-        
+
         # Registrar todas las métricas
         mlflow.log_params(best_params)
         mlflow.log_metrics(metrics)
-        
+
         # Guardar classification report
         report = classification_report(y_test, y_pred_test, output_dict=True)
         report_df = pd.DataFrame(report).transpose()
-        
-        # Guardar como artefacto temporal
         report_path = os.path.join(base_path, 'temp_classification_report.csv')
         report_df.to_csv(report_path)
         mlflow.log_artifact(report_path)
-        os.remove(report_path)  # Limpiar archivo temporal
-        
+        os.remove(report_path)
+
         # Interpretabilidad con SHAP
+        print(f"Iniciando análisis SHAP con {n_shap_samples} muestras...")
         try:
+            # Muestrear subconjunto de datos para análisis
             X_sample = X_test.sample(min(n_shap_samples, len(X_test)), random_state=42)
-            
-            # KNN usa KernelExplainer
+
+            # Crear background dataset pequeño para KernelExplainer
+            background_size = min(50, len(X_train))
+            X_background = shap.sample(X_train, background_size, random_state=42)
+
+            # Configurar explainer para KNN
             explainer = shap.KernelExplainer(
                 best_model.predict_proba,
-                shap.sample(X_train, min(100, len(X_train)))
+                X_background,
+                link="identity"
             )
-            shap_values = explainer.shap_values(X_sample)
-            
-            # Summary plot
+
+            # Calcular SHAP values con menos evaluaciones para optimizar tiempo
+            shap_values = explainer.shap_values(X_sample, nsamples=100, silent=True)
+
+            # Generar summary plot
             plt.figure(figsize=(12, 8))
-            shap.summary_plot(shap_values, X_sample, show=False)
+            shap_values_plot = shap_values[0] if isinstance(shap_values, list) else shap_values
+            shap.summary_plot(shap_values_plot, X_sample, show=False, max_display=15)
             shap_path = os.path.join(base_path, 'temp_shap_summary.png')
-            plt.savefig(shap_path, dpi=150, bbox_inches='tight')
+            plt.savefig(shap_path, dpi=120, bbox_inches='tight')
             plt.close()
-            
+
             mlflow.log_artifact(shap_path)
-            os.remove(shap_path)  # Limpiar archivo temporal
-            
+            os.remove(shap_path)
+            print("Análisis SHAP completado")
+
         except Exception as e:
             print(f"Error generando SHAP: {str(e)}")
             mlflow.log_param("shap_error", str(e))
-        
+
         # Guardar modelo entrenado con train set
         model_train_path = os.path.join(base_path, 'models', f'{model_name}_train.joblib')
         joblib.dump(best_model, model_train_path)

@@ -38,15 +38,9 @@ Este DAG implementa un pipeline completo para la predicción de productos priori
 
 14. 'evaluate_and_interpret': Segundo paso de la etapa de modelado. Entrena un modelo con el conjunto de entrenamiento usando los parámetros encontrados en 'optimize_model'. Evalúa el modelo en todos los conjuntos y realiza análisis de interpretabilidad con SHAP, registrando todo con MLFlow.
 
-15. 'train_final_model': Tercer y ultimo paso de la etapa de modelado. En paralelo a 'evaluate_and_interpret', entrena el modelo final que será usado para predecir, usando los parámetros encontrados en 'optimize_model'. Usa todos los datos (junta train + val + test) para mejorar el desempeño predictivo. Deriva en 'save_library_versions'. 
-  
-16. 'save_library_versions': Guarda las versiones de las librerías, independiente de si se realizó entrenamiento o no. Deriva en 'calculate_week'.
+15. 'train_final_model': Tercer y ultimo paso de la etapa de modelado. En paralelo a 'evaluate_and_interpret', entrena el modelo final que será usado para predecir, usando los parámetros encontrados en 'optimize_model'. Usa todos los datos (junta train + val + test) para mejorar el desempeño predictivo. Deriva en 'end_pipeline'.
 
-17. 'calculate_week': calcula el número correspondiente a la "proxima semana" para obtener la prediccion para la proxima semana. Deriva en 'predict'
-
-18. 'predict': Realiza la prediccion para la proxima semana
-
-17. 'end_pipeline': Fin del pipeline.
+16. 'end_pipeline': Fin del pipeline.
 
 
 ## Diagrama de flujo del *pipeline* completo

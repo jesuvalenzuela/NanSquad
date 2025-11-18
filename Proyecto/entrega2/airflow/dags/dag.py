@@ -5,6 +5,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.providers.standard.operators.bash import BashOperator
+from airflow.models.baseoperator import cross_downstream
 
 import sys
 import os
@@ -20,12 +21,12 @@ from decision_functions import (
     prepare_data,
     split_data,
     preprocess_data,
+    should_optimize_hyperparameters,
+    load_best_params,
     optimize_model,
     evaluate_and_interpret_model,
     train_final_model,
     #save_library_versions,
-    calculate_week_number,
-    predict_next_week_all_customers
 )
 
 # Ruta base para almacenar outputs
@@ -138,18 +139,35 @@ with DAG(
     # 3. OPTIMIZACIÓN, EVALUACIÓN E INTERPRETACIÓN DEL MODELO
     # =======================================================
 
-    # === Obtener parámetros óptimos ===
+    # === Decidir si optimizar o cargar hiperparámetros ===
+    decidir_optimizacion = BranchPythonOperator(
+        task_id='check_if_should_optimize',
+        python_callable=should_optimize_hyperparameters,
+        op_kwargs={
+            'base_path': BASE_PATH,
+            'reoptimize_weeks': 4  # Re-optimizar cada 4 semanas
+        }
+    )
+
+    # === Cargar hiperparámetros óptimos existentes ===
+    cargar_params = PythonOperator(
+        task_id='load_best_params',
+        python_callable=load_best_params,
+        op_kwargs={'base_path': BASE_PATH}
+    )
+
+    # === Optimizar parámetros (solo si es necesario) ===
     optimizar = PythonOperator(
         task_id='optimize_model',
         python_callable=optimize_model,
         op_kwargs={
             'base_path': BASE_PATH,
             'target_column': 'priority',
-            'n_trials': 50,
+            'n_trials': 30,  # Reducido de 50 a 30
             'model_name': MODEL_NAME
         }
     )
-    
+
     # === Evaluar e interpretar modelo ===
     evaluar_interpretar = PythonOperator(
         task_id='evaluate_and_interpret',
@@ -159,7 +177,8 @@ with DAG(
             'target_column': 'priority',
             'n_shap_samples':500,
             'model_name': MODEL_NAME
-        }
+        },
+        trigger_rule='none_failed'  # Se ejecuta después de cualquiera de las dos ramas
     )
 
     # === Entrenar con todos los datos ===
@@ -169,7 +188,8 @@ with DAG(
         op_kwargs={
             'base_path': BASE_PATH,
             'model_name': MODEL_NAME
-        }
+        },
+        trigger_rule='none_failed'  # Se ejecuta después de cualquiera de las dos ramas
     )
     
     # =======================================================
@@ -181,22 +201,6 @@ with DAG(
         trigger_rule='none_failed' # Se ejecuta aunque se haya saltado el entrenamiento
     )"""
 
-    # Calcular numero de semana para prediccón
-    calcular_semana = PythonOperator(
-        task_id='calculate_week',
-        python_callable=calculate_week_number,
-        trigger_rule='none_failed'
-    )
-
-    predecir = PythonOperator(
-        task_id='predict',
-        python_callable=predict_next_week_all_customers,
-        op_kwargs={
-            'base_path': BASE_PATH,
-            'model_name': MODEL_NAME
-        }
-    )
-
     end = EmptyOperator(
         task_id='end_pipeline',
         trigger_rule='none_failed'
@@ -205,26 +209,29 @@ with DAG(
     # =======================================================
     # DEFINICIÓN DE DEPENDENCIAS
     # =======================================================
-    # Se asume que si no hay nada en historico, es la primera vez que se corre, por lo que tampoco hay modelo, datos preprocesados, etc.
-    # Si hay historico, se asume que ya hay un modelo entrenado, por que lo si no hay datos nuevos no se reentrena
-    # Si hay historico y datos nuevos, se reentrena el modelo
+    # Flujo mejorado con optimización inteligente:
+    # 1. Primera ejecución: copia datos raw a histórico, optimiza hiperparámetros, entrena modelo
+    # 2. Datos nuevos: extiende dataset, carga hiperparámetros existentes, reentrena modelo
+    # 3. Re-optimización periódica: cada 4 semanas se re-optimizan hiperparámetros
 
-    # Inicio y primera bifuracion
+    # Inicio y primera bifurcacion
     start >> revisar_historicos >> [copiar_raw_a_historico, pasar_1] >> revisar_nuevos_datos
 
     # Segunda bifurcación
     revisar_nuevos_datos >> [incorporar_nuevos_datos, pasar_2] >> decidir_entrenamiento
-    
-    # Tercera bifurcacion
+
+    # Tercera bifurcacion (decidir si entrenar)
     decidir_entrenamiento >> [preparar_datos, no_entrenar]
 
-    # Si se toma la rama "preparar datos", se sigue todo el flujo de procesamiento de datos, entrenamiento, etc.
-    preparar_datos >> split_datos >> preprocesar >> optimizar >> [evaluar_interpretar, entrenar_modelo_final] >> calcular_semana
-    
-    # Si se toma la rama "pasar_3", se pasa directo a la tarea final
-    no_entrenar >> calcular_semana
+    # Cuarta bifurcación (decidir si optimizar o cargar hiperparámetros)
+    preparar_datos >> split_datos >> preprocesar >> decidir_optimizacion
+    decidir_optimizacion >> [optimizar, cargar_params]
 
-    # Predecri y fin del pipeline
-    calcular_semana >> predecir >> end
+    # Ambas ramas convergen en evaluación y entrenamiento final
+    cross_downstream([optimizar, cargar_params], [evaluar_interpretar, entrenar_modelo_final])
+    [evaluar_interpretar, entrenar_modelo_final] >> end
+
+    # Si se toma la rama "no_entrenar", se pasa directo a la tarea final
+    no_entrenar >> end
     
 
