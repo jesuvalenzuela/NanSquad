@@ -843,77 +843,6 @@ def train_final_model(base_path, target_column='priority', model_name='KNN_optim
 # ====== CIERRE Y PREPARACIÓN PARA DESPLIEGUE ======
 # ==================================================
 
-# ==================================================
-# ====== Detección de drift (no implementado) ======
-# ==================================================
-def detect_drift(significance_level=0.05, **context):
-    """
-    Detecta data drift comparando distribuciones entre train y nuevos datos.
-    Retorna True si se detecta drift significativo.
-    """
-    base_path = context['ti'].xcom_pull(task_ids='create_folders')
-    preprocessed_path = os.path.join(base_path, 'preprocessed')
-    drift_reports_path = os.path.join(base_path, 'drift_reports')
-    
-    # Cargar datos
-    train_df = pd.read_csv(os.path.join(preprocessed_path, 'train.csv'))
-    test_df = pd.read_csv(os.path.join(preprocessed_path, 'test.csv'))
-    
-    drift_detected = False
-    drift_results = {}
-    
-    # Identificar columnas numéricas (excluir target)
-    numeric_cols = train_df.select_dtypes(include=[np.number]).columns.tolist()
-    if 'priority' in numeric_cols:
-        numeric_cols.remove('priority')
-    
-    # Test de Kolmogorov-Smirnov para variables numéricas
-    for col in numeric_cols:
-        if col in test_df.columns:
-            statistic, p_value = ks_2samp(train_df[col], test_df[col])
-            
-            drift_results[col] = {
-                'test': 'KS',
-                'statistic': float(statistic),
-                'p_value': float(p_value),
-                'drift': p_value < significance_level
-            }
-            
-            if p_value < significance_level:
-                drift_detected = True
-                print(f"Drift detectado en '{col}': p-value={p_value:.4f}")
-    
-    # Guardar reporte
-    drift_report = {
-        'timestamp': datetime.now().isoformat(),
-        'drift_detected': drift_detected,
-        'significance_level': significance_level,
-        'features': drift_results
-    }
-    
-    import json
-    report_path = os.path.join(drift_reports_path, 'drift_report.json')
-    with open(report_path, 'w') as f:
-        json.dump(drift_report, f, indent=2)
-    
-    # Configurar MLflow y registrar
-    mlruns_path = os.path.join(base_path, 'mlruns')
-    mlflow.set_tracking_uri(f"file://{mlruns_path}")
-
-    experiment_name = "Drift_Detection"
-    mlflow.set_experiment(experiment_name)
-    
-    with mlflow.start_run(run_name=f"drift_check_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
-        mlflow.log_metric("drift_detected", int(drift_detected))
-        mlflow.log_metric("n_features_with_drift", sum(1 for r in drift_results.values() if r['drift']))
-        mlflow.log_artifact(report_path)
-
-    # Pushear resultado para decision
-    context['ti'].xcom_push(key='drift_detected', value=drift_detected)
-    
-    return drift_detected
-
-
 # ====== Interfaz gradio ======
 def prepare_data_for_prediction(week, customer_id, base_path):
     """
@@ -1009,18 +938,3 @@ def predict_next_week_all_customers(base_path, model_name='KNN_optimo', **contex
 
     return predictions
 
-#def gradio_interface(**context):
-"""
-Despliega modelo en gradio.
-"""
-"""base_path = context['ti'].xcom_pull(task_ids='create_folders')
-model_path = context['ti'].xcom_pull(task_ids='optimize_model')
-
-interface = gr.Interface(
-    fn=lambda file: predict_next_week(file, model_path, base_path),
-    inputs=gr.File(label="Ingresa un ID de cliente"),
-    outputs="json",
-    title="Product Priority Prediction",
-    description="Ingresa un ID de cliente para obtener una predicción de la prioridad de compra para cada producto."
-)
-interface.launch(share=True)"""

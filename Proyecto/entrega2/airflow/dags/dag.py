@@ -16,7 +16,6 @@ from decision_functions import (
     check_historical_data,
     check_new_data,
     extend_dataset,
-    #detect_drift,
     decide_if_train,
     prepare_data,
     split_data,
@@ -25,8 +24,7 @@ from decision_functions import (
     load_best_params,
     optimize_model,
     evaluate_and_interpret_model,
-    train_final_model,
-    #save_library_versions,
+    train_final_model
 )
 
 # Ruta base para almacenar outputs
@@ -49,7 +47,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-# Inicializar un DAG con fecha de inicio el 31 de diciembre de 2024, ejecución manual y **sin backfill**
+# Inicializar un DAG con fecha de inicio el 31 de diciembre de 2024, ejecución manual y sin backfill
 with DAG(
     dag_id='product_purchase_prediction',
     default_args=default_args,
@@ -209,7 +207,6 @@ with DAG(
     # =======================================================
     # DEFINICIÓN DE DEPENDENCIAS
     # =======================================================
-    # Flujo mejorado con optimización inteligente:
     # 1. Primera ejecución: copia datos raw a histórico, optimiza hiperparámetros, entrena modelo
     # 2. Datos nuevos: extiende dataset, carga hiperparámetros existentes, reentrena modelo
     # 3. Re-optimización periódica: cada 4 semanas se re-optimizan hiperparámetros
