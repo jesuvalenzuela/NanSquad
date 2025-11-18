@@ -6,17 +6,20 @@ services:
     container_name: product-priority-backend
     ports:
       - "8000:8000"
+    environment:
+      - AIRFLOW_HOME=/app/airflow
     volumes:
       # Montar directorios de Airflow para acceso compartido
-      - ../airflow/data:/airflow/data
-      - ../airflow/models:/airflow/models
-      - ../airflow/plugins:/airflow/plugins
+      - ../airflow/data:/app/airflow/data
+      - ../airflow/models:/app/airflow/models
+      - ../airflow/plugins:/app/airflow/plugins
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   frontend:
     build: ./frontend
@@ -26,9 +29,6 @@ services:
     environment:
       - BACKEND_URL=http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  airflow_data:
-  airflow_models:

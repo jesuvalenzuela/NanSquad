@@ -3,9 +3,11 @@ Backend FastAPI para sistema de predicción de productos prioritarios.
 Endpoints:
     - POST /upload-data: Recibe archivo de transacciones nuevas
     - POST /predict: Genera predicciones para próxima semana
+    - POST /trigger-dag: Triggea el DAG de Airflow manualmente
 """
 
 import os
+import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -32,27 +34,37 @@ app.add_middleware(
 import sys
 
 ####
-# Iteramos hatsa llegar al path del proyecto
-current_file_path = os.path.abspath(__file__)
-backend_dir = os.path.dirname(current_file_path)
-app_dir = os.path.dirname(backend_dir)
-project_dir = os.path.dirname(app_dir)
+# Configurar AIRFLOW_HOME según el entorno
+# En Docker: /app/airflow (montado por volúmenes)
+# En desarrollo local: calculado dinámicamente
+AIRFLOW_HOME = os.getenv("AIRFLOW_HOME")
 
-AIRFLOW_HOME = os.path.join(project_dir, "airflow")
+if AIRFLOW_HOME is None:
+    # Modo desarrollo: calcular ruta desde la ubicación del archivo
+    current_file_path = os.path.abspath(__file__)
+    backend_dir = os.path.dirname(current_file_path)
+    app_dir = os.path.dirname(backend_dir)
+    project_dir = os.path.dirname(app_dir)
+    AIRFLOW_HOME = os.path.join(project_dir, "airflow")
+else:
+    # Modo Docker: usar variable de entorno
+    pass
 
-AIRFLOW_DATA_NEW = os.path.join(AIRFLOW_HOME, "data/new")
-AIRFLOW_MODELS = os.path.join(AIRFLOW_HOME, "models")
-AIRFLOW_PLUGINS = os.path.join(AIRFLOW_HOME, "plugins")
-MODEL_PATH = Path(AIRFLOW_MODELS) / "product_priority_model.joblib"
+AIRFLOW_DATA_NEW = Path(AIRFLOW_HOME) / "data" / "new"
+AIRFLOW_DATA_TRANSFORMED = Path(AIRFLOW_HOME) / "data" / "transformed"
+AIRFLOW_MODELS = Path(AIRFLOW_HOME) / "models"
+AIRFLOW_PLUGINS = Path(AIRFLOW_HOME) / "plugins"
+MODEL_PATH = AIRFLOW_MODELS / "product_priority_model.joblib"
+PREPROCESSOR_PATH = AIRFLOW_MODELS / "product_priority_model_preprocessor.joblib"
 
 # Insert the parent directory at the beginning of sys.path
-sys.path.insert(0, AIRFLOW_PLUGINS)
+sys.path.insert(0, str(AIRFLOW_PLUGINS))
 
 try:
-    from prediction_utils import predict_next_week_all_customers  # Ajusta el nombre según tu función
+    from prediction_utils import predict_next_week_all_customers
 except ImportError as e:
-    print(f"Warning: No se pudo importar prediction_function: {e}")
-    predict_next_week = None
+    print(f"Warning: No se pudo importar prediction_utils: {e}")
+    predict_next_week_all_customers = None
 
 @app.get("/")
 def read_root():
@@ -125,7 +137,7 @@ def generate_predictions():
     """
     Carga el modelo entrenado y genera predicciones para todos los clientes
     en la próxima semana.
-    
+
     Retorna DataFrame con predicciones en formato JSON.
     """
     try:
@@ -136,24 +148,113 @@ def generate_predictions():
                 detail=f"Modelo no encontrado en {MODEL_PATH}. "
                        "Ejecuta el DAG primero."
             )
-        
-        # Cargar modelo
-        model = joblib.load(MODEL_PATH)
 
-        predictions = predict_next_week_all_customers(base_path=AIRFLOW_HOME, model_name="product_priority_model")
-        
+        # Verificar que existen los archivos de datos transformados
+        if not AIRFLOW_DATA_TRANSFORMED.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Datos transformados no encontrados. Ejecuta el DAG primero."
+            )
+
+        # Verificar función de predicción
+        if predict_next_week_all_customers is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Función de predicción no disponible. Verifica instalación de dependencias."
+            )
+
+        # Generar predicciones usando la función del plugin de Airflow
+        predictions_dict = predict_next_week_all_customers(
+            base_path=AIRFLOW_HOME,
+            model_name="product_priority_model"
+        )
+
+        # Convertir el diccionario a formato lista para el frontend
+        # predictions_dict tiene estructura: {customer_id: {product_id: priority_prediction}}
+        predictions_list = []
+        for customer_id, products_pred in predictions_dict.items():
+            # products_pred es un dict {product_id: priority_prediction}
+            for product_id, priority in products_pred.items():
+                predictions_list.append({
+                    "customer_id": str(customer_id),
+                    "product_id": str(product_id),
+                    "priority": int(priority) if isinstance(priority, (int, float)) else priority
+                })
+
         return {
             "status": "success",
-            "predictions": predictions,
+            "predictions": predictions_list,
+            "total_predictions": len(predictions_list),
             "timestamp": datetime.now().isoformat()
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error al generar predicciones: {str(e)}"
+        )
+
+
+@app.post("/trigger-dag")
+def trigger_dag():
+    """
+    Triggea manualmente el DAG de Airflow para reentrenar el modelo.
+
+    Ejecuta el comando: airflow dags trigger product_purchase_prediction
+    """
+    try:
+        # Verificar si Airflow está disponible
+        result = subprocess.run(
+            ["airflow", "dags", "list"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=503,
+                detail="Airflow no está disponible. Asegúrate de que Airflow esté corriendo."
+            )
+
+        # Triggear el DAG
+        result = subprocess.run(
+            ["airflow", "dags", "trigger", "product_purchase_prediction"],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error al triggear DAG: {result.stderr}"
+            )
+
+        return {
+            "status": "success",
+            "message": "DAG triggereado exitosamente",
+            "dag_id": "product_purchase_prediction",
+            "output": result.stdout,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=504,
+            detail="Timeout al comunicarse con Airflow"
+        )
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="Comando 'airflow' no encontrado. Airflow debe estar instalado y en el PATH."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al triggear DAG: {str(e)}"
         )
 
 

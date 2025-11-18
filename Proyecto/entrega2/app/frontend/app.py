@@ -55,34 +55,67 @@ def generate_predictions():
     try:
         response = requests.post(
             f"{BACKEND_URL}/predict",
-            timeout=60
+            timeout=120  # Aumentar timeout porque puede tardar
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             predictions = data.get("predictions", [])
-            
+
             if not predictions:
                 return None, "⚠️ No se generaron predicciones"
-            
+
             # Convertir a DataFrame para visualización
             df = pd.DataFrame(predictions)
-            
+
             message = f"""✅ **Predicciones generadas exitosamente**
-            
+
 - Total de predicciones: {data.get('total_predictions', len(predictions))}
 - Timestamp: {data.get('timestamp', 'N/A')}
 
-Resultados en la tabla inferior.
+Resultados en la tabla inferior. Puedes descargar los resultados usando el botón en la esquina superior derecha de la tabla.
 """
             return df, message
-            
+
         else:
             error_detail = response.json().get('detail', 'Error desconocido')
-            return None, f"Error: {error_detail}"
-            
+            return None, f"❌ Error: {error_detail}"
+
+    except requests.exceptions.Timeout:
+        return None, "⏱️ Timeout: La generación de predicciones está tardando mucho. Intenta de nuevo."
     except Exception as e:
-        return None, f"Error al conectar con el backend: {str(e)}"
+        return None, f"❌ Error al conectar con el backend: {str(e)}"
+
+
+def trigger_dag():
+    """
+    Triggea el DAG de Airflow para reentrenar el modelo.
+    """
+    try:
+        response = requests.post(
+            f"{BACKEND_URL}/trigger-dag",
+            timeout=60
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            return f"""✅ **DAG triggereado exitosamente**
+
+- DAG ID: {data.get('dag_id', 'N/A')}
+- Mensaje: {data.get('message', 'N/A')}
+
+El modelo comenzará a reentrenarse. Puedes verificar el progreso en la interfaz de Airflow (http://localhost:8080).
+
+⚠️ **Nota**: El reentrenamiento puede tardar varios minutos dependiendo del tamaño de los datos.
+"""
+        else:
+            error_detail = response.json().get('detail', 'Error desconocido')
+            return f"❌ Error al triggear DAG: {error_detail}"
+
+    except requests.exceptions.Timeout:
+        return "⏱️ Timeout al comunicarse con Airflow"
+    except Exception as e:
+        return f"❌ Error al conectar con el backend: {str(e)}"
 
 
 # ============================================================================
@@ -99,42 +132,53 @@ with gr.Blocks(title="Predicción de Productos Prioritarios") as app:
     """)
     
     with gr.Tabs():
-        
+
         # ========== PESTAÑA 1: SUBIR DATOS ==========
         with gr.Tab("📤 Subir Datos Nuevos"):
             gr.Markdown("""
             ### Instrucciones
-            
+
             1. **Prepara tu archivo**: Debe ser formato `.parquet` con las columnas:
                - `customer_id`: ID del cliente
                - `product_id`: ID del producto
                - `order_id`: ID de la orden
                - `purchase_date`: Fecha de compra
                - `items`: Cantidad de items
-            
+
             2. **Sube el archivo**: Usa el botón inferior para seleccionar tu archivo
-            
-            3. **Reentrena el modelo**: Una vez subido, ejecuta manualmente el DAG de 
-               Airflow para que el modelo incorpore estos nuevos datos
+
+            3. **Reentrena el modelo**: Después de subir los datos, usa el botón
+               "Triggear Reentrenamiento" para iniciar el proceso automáticamente
             """)
-            
+
             with gr.Row():
                 file_input = gr.File(
                     label="Selecciona archivo transacciones.parquet",
                     file_types=[".parquet"]
                 )
-            
+
             upload_button = gr.Button("Subir Datos", variant="primary")
             upload_output = gr.Markdown()
-            
+
             upload_button.click(
                 fn=upload_new_data,
                 inputs=file_input,
                 outputs=upload_output
             )
-        
+
+            gr.Markdown("---")
+            gr.Markdown("### Reentrenamiento del Modelo")
+
+            trigger_button = gr.Button("🔄 Triggear Reentrenamiento", variant="secondary")
+            trigger_output = gr.Markdown()
+
+            trigger_button.click(
+                fn=trigger_dag,
+                outputs=trigger_output
+            )
+
         # ========== PESTAÑA 2: PREDICCIONES ==========
-        with gr.Tab("Generar Predicciones"):
+        with gr.Tab("🔮 Generar Predicciones"):
             gr.Markdown("""
             ### Instrucciones
             
@@ -163,10 +207,12 @@ with gr.Blocks(title="Predicción de Productos Prioritarios") as app:
     gr.Markdown("""
     ---
     ### Notas Adicionales
-    
+
     - **Modelo**: El modelo se carga desde `/airflow/models/product_priority_model.joblib`
     - **Datos nuevos**: Se guardan en `/airflow/data/new/transacciones.parquet`
-    - **Reentrenamiento**: Se debe ejecutar el DAG manualmente después de subir datos nuevos
+    - **Reentrenamiento**: Puedes triggear el DAG desde esta interfaz o esperar a la ejecución semanal automática
+    - **Airflow UI**: Monitorea el progreso del DAG en http://localhost:8080
+    - **Backend API**: Documentación disponible en http://localhost:8000/docs
     """)
 
 
