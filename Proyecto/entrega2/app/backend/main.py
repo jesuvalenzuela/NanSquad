@@ -34,28 +34,22 @@ app.add_middleware(
 import sys
 
 ####
-# Configurar AIRFLOW_HOME según el entorno
-# En Docker: /app/airflow (montado por volúmenes)
-# En desarrollo local: calculado dinámicamente
-AIRFLOW_HOME = os.getenv("AIRFLOW_HOME")
+# Obtener directrio de la carpeta airflow iterando hacia directoros padre
 
-if AIRFLOW_HOME is None:
     # Modo desarrollo: calcular ruta desde la ubicación del archivo
-    current_file_path = os.path.abspath(__file__)
-    backend_dir = os.path.dirname(current_file_path)
-    app_dir = os.path.dirname(backend_dir)
-    project_dir = os.path.dirname(app_dir)
-    AIRFLOW_HOME = os.path.join(project_dir, "airflow")
-else:
-    # Modo Docker: usar variable de entorno
-    pass
+current_file_path = os.path.abspath(__file__)
+backend_dir = os.path.dirname(current_file_path)
+app_dir = os.path.dirname(backend_dir)
+project_dir = os.path.dirname(app_dir)
+AIRFLOW_HOME = os.path.join(project_dir, "airflow")
+
 
 AIRFLOW_DATA_NEW = Path(AIRFLOW_HOME) / "data" / "new"
 AIRFLOW_DATA_TRANSFORMED = Path(AIRFLOW_HOME) / "data" / "transformed"
 AIRFLOW_MODELS = Path(AIRFLOW_HOME) / "models"
 AIRFLOW_PLUGINS = Path(AIRFLOW_HOME) / "plugins"
 MODEL_PATH = AIRFLOW_MODELS / "product_priority_model.joblib"
-PREPROCESSOR_PATH = AIRFLOW_MODELS / "product_priority_model_preprocessor.joblib"
+PREPROCESSOR_PATH = AIRFLOW_MODELS / "preprocessor.joblib"
 
 # Insert the parent directory at the beginning of sys.path
 sys.path.insert(0, str(AIRFLOW_PLUGINS))
