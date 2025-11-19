@@ -3,11 +3,9 @@ Backend FastAPI para sistema de predicción de productos prioritarios.
 Endpoints:
     - POST /upload-data: Recibe archivo de transacciones nuevas
     - POST /predict: Genera predicciones para próxima semana
-    - POST /trigger-dag: Triggea el DAG de Airflow manualmente
 """
 
 import os
-import subprocess
 from pathlib import Path
 
 from datetime import datetime, timedelta
@@ -190,67 +188,6 @@ def generate_predictions():
         raise HTTPException(
             status_code=500,
             detail=f"Error al generar predicciones: {str(e)}"
-        )
-
-
-@app.post("/trigger-dag")
-def trigger_dag():
-    """
-    Triggea manualmente el DAG de Airflow para reentrenar el modelo.
-
-    Ejecuta el comando: airflow dags trigger product_purchase_prediction
-    """
-    try:
-        # Verificar si Airflow está disponible
-        result = subprocess.run(
-            ["airflow", "dags", "list"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-
-        if result.returncode != 0:
-            raise HTTPException(
-                status_code=503,
-                detail="Airflow no está disponible. Asegúrate de que Airflow esté corriendo."
-            )
-
-        # Triggear el DAG
-        result = subprocess.run(
-            ["airflow", "dags", "trigger", "product_purchase_prediction"],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-
-        if result.returncode != 0:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error al triggear DAG: {result.stderr}"
-            )
-
-        return {
-            "status": "success",
-            "message": "DAG triggereado exitosamente",
-            "dag_id": "product_purchase_prediction",
-            "output": result.stdout,
-            "timestamp": datetime.now().isoformat()
-        }
-
-    except subprocess.TimeoutExpired:
-        raise HTTPException(
-            status_code=504,
-            detail="Timeout al comunicarse con Airflow"
-        )
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=503,
-            detail="Comando 'airflow' no encontrado. Airflow debe estar instalado y en el PATH."
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al triggear DAG: {str(e)}"
         )
 
 

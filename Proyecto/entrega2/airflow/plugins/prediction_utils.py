@@ -42,20 +42,23 @@ def prepare_data_for_prediction(week, customer_id, base_path):
                         'brand', 'sub_category', 'segment', 'package', 'size']]
 
 
-def predict(week, customer_id, base_path, model_name='product_priority_model'):
+def predict(week, customer_id, base_path, model_name='product_priority_model',
+            model=None, preprocessor=None):
     """Entrega prediccion para la semana siguiente para el cliente especificado."""
-
-    model_path = os.path.join(base_path, 'models', f'{model_name}.joblib')
 
     # transformar
     input_data = prepare_data_for_prediction(week, customer_id, base_path)
 
-    # preprocesar
-    preprocessor_path = os.path.join(base_path, 'models', f'preprocessor.joblib')
-    preprocessor = joblib.load(preprocessor_path)
+    # preprocesar (cargar solo si no se pasó como parámetro)
+    if preprocessor is None:
+        preprocessor_path = os.path.join(base_path, 'models', f'preprocessor.joblib')
+        preprocessor = joblib.load(preprocessor_path)
     data_clean = preprocessor.transform(input_data)
 
-    model = joblib.load(model_path)
+    # predecir (cargar solo si no se pasó como parámetro)
+    if model is None:
+        model_path = os.path.join(base_path, 'models', f'{model_name}.joblib')
+        model = joblib.load(model_path)
     predictions = model.predict(data_clean)
     products = input_data['product_id'].values
 
@@ -93,14 +96,29 @@ def calculate_week_number(execution_date=None):
 def predict_next_week_all_customers(base_path, model_name='product_priority_model'):
     next_week = calculate_week_number()
 
+    # Cargar modelo y preprocessor UNA SOLA VEZ (no en cada iteración)
+    model_path = os.path.join(base_path, 'models', f'{model_name}.joblib')
+    preprocessor_path = os.path.join(base_path, 'models', 'preprocessor.joblib')
+
+    print(f"Cargando modelo desde {model_path}...")
+    model = joblib.load(model_path)
+    print(f"Cargando preprocessor desde {preprocessor_path}...")
+    preprocessor = joblib.load(preprocessor_path)
+
     clients_path = os.path.join(base_path, 'data', 'transformed', 'unique_clients.csv')
     clients_df = pd.read_csv(clients_path)
     client_ids = clients_df['customer_id'].values
 
-    predictions = {}
-    for client in client_ids:
-        predictions[client] = predict(next_week, client, base_path, model_name)
+    print(f"Generando predicciones para {len(client_ids)} clientes...")
 
+    predictions = {}
+    for i, client in enumerate(client_ids):
+        if i % 100 == 0:  # Progress logging cada 100 clientes
+            print(f"Procesando cliente {i}/{len(client_ids)}...")
+        predictions[client] = predict(next_week, client, base_path, model_name,
+                                     model=model, preprocessor=preprocessor)
+
+    print(f"Predicciones completadas para {len(predictions)} clientes.")
     return predictions
 
 
