@@ -5,7 +5,7 @@ services:
     build: ./backend
     container_name: product-priority-backend
     ports:
-      - "8000:8000"
+      - "8001:8001"
     environment:
       - AIRFLOW_HOME=/app/airflow
     volumes:
@@ -15,7 +15,7 @@ services:
       - ../airflow/plugins:/app/airflow/plugins
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -27,7 +27,7 @@ services:
     ports:
       - "7860:7860"
     environment:
-      - BACKEND_URL=http://backend:8000
+      - BACKEND_URL=http://backend:8001
     depends_on:
       backend:
         condition: service_healthy

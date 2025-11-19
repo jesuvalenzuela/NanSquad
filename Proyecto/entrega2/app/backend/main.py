@@ -9,6 +9,7 @@ Endpoints:
 import os
 import subprocess
 from pathlib import Path
+
 from datetime import datetime, timedelta
 
 import joblib
@@ -34,15 +35,16 @@ app.add_middleware(
 import sys
 
 ####
-# Obtener directrio de la carpeta airflow iterando hacia directoros padre
+# Detectar si estamos en Docker o desarrollo local
+if os.path.exists("/app/airflow"):  # Estamos en Docker
+    AIRFLOW_HOME = "/app/airflow"
+else:  # Estamos en desarrollo local
+    ROOT_DIR = Path(__file__).resolve().parents[1]
+    project_dir = os.path.dirname(ROOT_DIR)
+    AIRFLOW_HOME = os.path.join(project_dir, "airflow")
 
-    # Modo desarrollo: calcular ruta desde la ubicación del archivo
-current_file_path = os.path.abspath(__file__)
-backend_dir = os.path.dirname(current_file_path)
-app_dir = os.path.dirname(backend_dir)
-project_dir = os.path.dirname(app_dir)
-AIRFLOW_HOME = os.path.join(project_dir, "airflow")
-
+print(f"AIRFLOW_HOME: {AIRFLOW_HOME}")
+print(f"Existe AIRFLOW_HOME: {os.path.exists(AIRFLOW_HOME)}")
 
 AIRFLOW_DATA_NEW = Path(AIRFLOW_HOME) / "data" / "new"
 AIRFLOW_DATA_TRANSFORMED = Path(AIRFLOW_HOME) / "data" / "transformed"
@@ -254,4 +256,4 @@ def trigger_dag():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

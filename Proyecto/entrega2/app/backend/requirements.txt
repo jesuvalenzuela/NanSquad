@@ -1,6 +1,8 @@
-# Web framework (versión fija por compatibilidad)
-fastapi==0.104.1
-uvicorn==0.24.0
+# Web framework (versión actualizada para compatibilidad con Airflow)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+apache-airflow>=2.8.0
+apache-airflow-providers-common-sql
 scikit-learn==1.3.2     # debe coincidir con version de entrenamiento
 mlflow>=2.18.0      # version minima requerida
 python-multipart
@@ -8,10 +10,31 @@ python-multipart
 # Data processing
 pandas
 numpy
-pyarrow
 
-# Machine Learning
+# Hyperparameter optimization
+optuna
+
+# Model interpretability
+shap
+
+# Model serialization
 joblib
+
+# Visualization
+matplotlib
+seaborn
+
+# Statistical tests
+scipy
+
+# Data formats
+fastparquet
+
+# Utilities
+python-dateutil
+
+# Data processing
+pyarrow
 
 # Serialization
 dill
