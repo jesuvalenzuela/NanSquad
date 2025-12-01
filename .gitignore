@@ -1,1 +1,15 @@
 .DS_Store
+__pycache__/
+Proyecto/entrega2/airflow/mlruns/
+Proyecto/entrega2/airflow/models/
+Proyecto/entrega2/airflow/logs/
+Proyecto/entrega2/airflow/airflow-scheduler.err
+Proyecto/entrega2/airflow/airflow-scheduler.log
+Proyecto/entrega2/airflow/airflow-scheduler.out
+Proyecto/entrega2/airflow/airflow.cfg
+Proyecto/entrega2/airflow/airflow.db
+Proyecto/entrega2/airflow/airflow.db-shm
+Proyecto/entrega2/airflow/airflow.db-wal
+Proyecto/entrega2/airflow/simple_auth_manager_passwords.json.generated
+**/*.zip
+Proyecto/entrega2/airflow/plugins/__pycache__/

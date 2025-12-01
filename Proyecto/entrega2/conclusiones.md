@@ -1,0 +1,19 @@
+# Conclusiones del Proyecto MLOps
+
+## ¿Cómo mejoró el desarrollo del proyecto al utilizar herramientas de tracking y despliegue?
+
+Usar MLflow cambió completamente como trabajamos en este proyecto. Antes teníamos notebooks por todos lados y siempre se nos perdían las configuraciones que funcionaban bien. Ahora, cada experimento que hacemos queda registrado automáticamente con todos sus parámetros, métricas y modelos. Es súper útil porque podemos volver atrás y comparar diferentes versiones sin tener que recordar qué cambios hicimos hace una semana. También, el hecho de que los modelos, gráficos SHAP y todo quede guardado en un solo lugar hace que sea mucho más fácil trabajar entre el entrenamiento y cuando lo ponemos en producción. Básicamente, ya no perdemos tiempo buscando la configuración optima porque está todo ahí registrado.
+
+## ¿Qué aspectos del despliegue con Gradio/FastAPI fueron más desafiantes o interesantes?
+
+Lo más complicado definitivamente fue hacer que el frontend y backend se comuniquen bien. Al principio teníamos problemas con timeouts y errores que no sabíamos manejar correctamente. Docker también nos costó un poco, optimizar las imágenes para que no fueran gigantes pero que tuvieran todo lo necesario fue todo un tema. Lo interesante es que una vez que lo configuramos bien, Gradio nos permitió crear una interfaz súper rápido, literalmente con unas pocas líneas de código teníamos algo funcional. FastAPI también está buenísimo porque te genera la documentación de las APIs automáticamente, lo que nos ayudó mucho para hacer pruebas. Al final, Docker resultó ser genial porque podemos correr la aplicación en cualquier lado sin problemas de compatibilidad.
+
+## ¿Cómo aporta Airflow a la robustez y escalabilidad del pipeline?
+
+Airflow nos salvó la vida con el tema de los errores. Antes, si algo fallaba a la mitad del proceso, teníamos que empezar todo de nuevo. Ahora, si hay un problema temporal (como que se cayó la conexión), Airflow automáticamente reintenta y puede continuar desde donde se quedó. Lo mejor es que el pipeline es súper "inteligente", o sea detecta si hay datos nuevos, si necesita optimizar hiperparámetros o si puede usar configuraciones que ya tiene guardadas. Cada tarea está separada, entonces si queremos agregar algo nuevo o cambiar una parte, no tenemos que tocar todo el código. También corre varias cosas en paralelo cuando puede, lo que hace que todo sea más rápido.
+
+## ¿Qué se podría mejorar en una versión futura del flujo? ¿Qué partes automatizarían más, qué monitorearían o qué métricas agregarían?
+
+Hay varias cosas que nos gustaría automatizar más. Por ejemplo, sería genial tener un sistema que detecte automáticamente cuando los datos cambian mucho y que eso dispare un reentrenamiento. También querríamos que los modelos se validen solos antes de ponerse en producción, y si el nuevo modelo es peor que el anterior, que automáticamente vuelva a la versión anterior. En cuanto a monitoreo, nos falta tener dashboards que muestren en tiempo real cómo está funcionando el modelo, no solo métricas técnicas sino también el impacto real en el negocio, como si las predicciones están ayudando a aumentar las ventas. También sería útil tener alertas que nos avisen si algo anda mal. Para escalabilidad, nos gustaría poder procesar datos en tiempo real en lugar de por lotes, y que el sistema se ajuste automáticamente según la carga de trabajo.
+
+Implementar MLOps nos cambió la forma de pensar en el desarrollo. Ahora tenemos un sistema que se puede reproducir, escalar y mantener fácilmente. Las herramientas que usamos (Airflow, MLflow, FastAPI, Gradio, Docker) funcionan muy bien juntas y nos dieron una base sólida para cuando tengamos que manejar proyectos más grandes en el futuro.
