@@ -14,3 +14,8 @@ Proyecto/entrega2/airflow/simple_auth_manager_passwords.json.generated
 **/*.zip
 Proyecto/entrega2/airflow/plugins/__pycache__/
 venv/
+Proyecto/entrega3/airflow/airflow.cfg
+Proyecto/entrega3/airflow/airflow.db
+Proyecto/entrega3/airflow/airflow.db-shm
+Proyecto/entrega3/airflow/airflow.db-wal
+Proyecto/entrega3/airflow/simple_auth_manager_passwords.json.generated
