@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jesu/Desktop/Magister/LabProgramacionCientifica/NanSquad/Proyecto/entrega3/airflow/mlruns/122514783594918439/0053477a6ec046e5a39cb364ac15608a/artifacts
+end_time: 1764692167580
+entry_point_name: ''
+experiment_id: '122514783594918439'
+lifecycle_stage: active
+run_id: 0053477a6ec046e5a39cb364ac15608a
+run_name: Production_Model_2025-11-30
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1764692165300
+status: 3
+tags: []
+user_id: jesu

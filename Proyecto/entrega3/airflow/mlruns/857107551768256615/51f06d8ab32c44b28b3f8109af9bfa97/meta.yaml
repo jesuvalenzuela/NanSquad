@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jesu/Desktop/Magister/LabProgramacionCientifica/NanSquad/Proyecto/entrega3/airflow/mlruns/857107551768256615/51f06d8ab32c44b28b3f8109af9bfa97/artifacts
+end_time: 1764692146227
+entry_point_name: ''
+experiment_id: '857107551768256615'
+lifecycle_stage: active
+run_id: 51f06d8ab32c44b28b3f8109af9bfa97
+run_name: KNN_nn34_wuniform_p1
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1764692144535
+status: 3
+tags: []
+user_id: jesu
