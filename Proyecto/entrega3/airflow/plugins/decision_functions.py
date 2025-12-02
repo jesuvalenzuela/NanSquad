@@ -242,10 +242,81 @@ def prepare_data(data_path):
 
     # 5. Creación de variable objetivo
     # Calcular cuantiles por cliente
-    weekly_data['priority'] = assign_priority(weekly_data, 
+    weekly_data['priority'] = assign_priority(weekly_data,
                                               client_col='customer_id',
                                               items_col='weekly_items')
-    
+
+    # 5b. Generar registros sintéticos de productos NO comprados
+    # Esto ayuda al modelo a aprender que productos no comprados tienen prioridad baja
+    print("Generando registros sintéticos de productos no comprados...")
+
+    # Configuración
+    np.random.seed(42)  # Para reproducibilidad
+    n_samples_per_customer_week = 2  # Productos no comprados a muestrear por cliente-semana
+    sample_weeks_count = 5  # Solo muestrear para las últimas N semanas (para controlar tamaño)
+
+    # Obtener información única de productos y clientes
+    product_info_df = weekly_data[['product_id', 'brand', 'sub_category', 'segment', 'package', 'size']].drop_duplicates()
+    customer_info_df = weekly_data[['customer_id', 'customer_type', 'num_deliver_per_week']].drop_duplicates()
+
+    # Obtener clientes, semanas y productos únicos
+    unique_customers = weekly_data['customer_id'].unique()
+    unique_weeks = sorted(weekly_data['week'].unique())[-sample_weeks_count:]  # Últimas N semanas
+    unique_products = weekly_data['product_id'].unique()
+
+    synthetic_records = []
+
+    for customer in unique_customers:
+        # Obtener info del cliente
+        customer_data = customer_info_df[customer_info_df['customer_id'] == customer].iloc[0]
+
+        for week in unique_weeks:
+            # Productos comprados por este cliente en esta semana
+            purchased_products = set(
+                weekly_data[
+                    (weekly_data['customer_id'] == customer) &
+                    (weekly_data['week'] == week)
+                ]['product_id'].values
+            )
+
+            # Productos no comprados
+            non_purchased = [p for p in unique_products if p not in purchased_products]
+
+            if len(non_purchased) > 0:
+                # Muestrear productos no comprados
+                sample_size = min(n_samples_per_customer_week, len(non_purchased))
+                sampled_products = np.random.choice(non_purchased, size=sample_size, replace=False)
+
+                for product in sampled_products:
+                    # Obtener info del producto
+                    product_data = product_info_df[product_info_df['product_id'] == product].iloc[0]
+
+                    # Crear registro sintético
+                    synthetic_record = {
+                        'customer_id': customer,
+                        'week': week,
+                        'product_id': product,
+                        'customer_type': customer_data['customer_type'],
+                        'num_deliver_per_week': customer_data['num_deliver_per_week'],
+                        'brand': product_data['brand'],
+                        'sub_category': product_data['sub_category'],
+                        'segment': product_data['segment'],
+                        'package': product_data['package'],
+                        'size': product_data['size'],
+                        'weekly_items': 0,  # Producto no comprado
+                        'priority': 'Very Low'  # Prioridad baja para productos no comprados
+                    }
+                    synthetic_records.append(synthetic_record)
+
+    # Concatenar registros sintéticos si existen
+    if synthetic_records:
+        synthetic_df = pd.DataFrame(synthetic_records)
+        weekly_data = pd.concat([weekly_data, synthetic_df], ignore_index=True)
+        print(f"Agregados {len(synthetic_records)} registros sintéticos de productos no comprados")
+        print(f"Tamaño del dataset: {len(weekly_data)} registros totales")
+    else:
+        print("No se generaron registros sintéticos")
+
     # 6. Eliminar columnas que no se usaran
     weekly_data = weekly_data.drop(columns=['X', 'Y', 'order_id', 'region_id', 'zone_id', 'num_visit_per_week',
                                             'category', 'purchase_date', 'weekly_items'])
