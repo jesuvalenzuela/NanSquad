@@ -689,10 +689,14 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
             clf = KNeighborsClassifier(**params)
             clf.fit(X_train, y_train)
 
-            # Calcular F1 para la clase "Very High" específicamente (lo que más importa)
+            # Calcular F1 para las clases "Very High" y "High" (lo que más importa)
             y_pred_val = clf.predict(X_val)
             f1_per_class = f1_score(y_val, y_pred_val, average=None, labels=['Very Low', 'Low', 'Medium', 'High', 'Very High'])
+            f1_high = f1_per_class[-2]  # Penúltima clase: High
             f1_very_high = f1_per_class[-1]  # Última clase: Very High
+
+            # Promedio ponderado favoreciendo "Very High" (60%) sobre "High" (40%)
+            f1_high_priorities = 0.6 * f1_very_high + 0.4 * f1_high
 
             # También calcular F1 macro para referencia
             f1_macro = f1_score(y_val, y_pred_val, average="macro")
@@ -700,16 +704,18 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
             # Penalización por complejidad: favorecer modelos con más vecinos (menos overfitting)
             # Normalizar n_neighbors a rango [0, 1] donde 1 = más vecinos = menos complejo
             complexity_penalty = (params['n_neighbors'] - 10) / (50 - 10) * 0.02  # Penalización máxima de 0.02
-            f1_penalized = f1_very_high + complexity_penalty
+            f1_penalized = f1_high_priorities + complexity_penalty
 
             # Registrar en MLflow
             mlflow.log_params(params)
+            mlflow.log_metric("valid_f1_high", f1_high)
             mlflow.log_metric("valid_f1_very_high", f1_very_high)
+            mlflow.log_metric("valid_f1_high_priorities", f1_high_priorities)
             mlflow.log_metric("valid_f1_macro", f1_macro)
             mlflow.log_metric("valid_f1_penalized", f1_penalized)
             mlflow.log_metric("complexity_penalty", complexity_penalty)
 
-        # OPTIMIZAR para F1 "Very High" con penalización por complejidad
+        # OPTIMIZAR para F1 promedio de "Very High" y "High" con penalización por complejidad
         return f1_penalized
 
     # Ejecutar optimización con pruner para detener trials no prometedores
@@ -731,9 +737,9 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
         mlflow.set_tag("stage", "optimization_summary")
         mlflow.set_tag("mlflow.note.content",
                       f"Best hyperparameters from {n_trials} trials. "
-                      f"Best F1-score (Very High class): {study.best_value:.4f}")
+                      f"Best F1-score (High + Very High priorities): {study.best_value:.4f}")
         mlflow.log_params(best_params)
-        mlflow.log_metric("best_f1_very_high", study.best_value)
+        mlflow.log_metric("best_f1_high_priorities", study.best_value)
         mlflow.log_metric("n_trials", n_trials)
 
     # Guardar mejores parámetros en archivo JSON
@@ -742,7 +748,7 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
     # Guardar metadata de optimización
     metadata = {
         'best_params': best_params,
-        'best_f1_very_high_score': study.best_value,
+        'best_f1_high_priorities_score': study.best_value,
         'optimization_date': execution_date,
         'n_trials': n_trials,
         'weeks_since_last_optimization': 0
@@ -752,7 +758,7 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
         json.dump(metadata, f, indent=2)
 
     print(f"Hiperparámetros óptimos guardados en {params_file}")
-    print(f"Mejor F1-score (Very High): {study.best_value:.4f}")
+    print(f"Mejor F1-score (High + Very High): {study.best_value:.4f}")
 
     return best_params
 

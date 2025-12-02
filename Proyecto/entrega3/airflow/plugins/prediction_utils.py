@@ -196,7 +196,7 @@ def predictions_to_dataframe(predictions_dict):
 def generate_and_save_predictions(base_path, model_name='product_priority_model'):
     """
     Genera predicciones para la semana del día siguiente al último dato disponible,
-    filtra solo 'Very High' y guarda en CSV.
+    filtra 'Very High' y 'High' y guarda en CSV.
 
     Args:
         base_path: Ruta base de AIRFLOW_HOME
@@ -220,11 +220,11 @@ def generate_and_save_predictions(base_path, model_name='product_priority_model'
     # 3. Generar predicciones pasando el número de semana
     predictions = predict_next_week_all_customers(base_path, model_name, week_number=week_to_predict)
 
-    # 4. Filtrar solo 'Very High'
+    # 4. Filtrar 'Very High' y 'High'
     rows = []
     for customer_id, products_dict in predictions.items():
         for product_id, priority in products_dict.items():
-            if priority == 'Very High':
+            if priority in ['Very High', 'High']:
                 rows.append([customer_id, product_id])
 
     # 5. Crear carpeta predictions si no existe
@@ -240,7 +240,7 @@ def generate_and_save_predictions(base_path, model_name='product_priority_model'
 
     print("=" * 70)
     print(f"✓ Predicciones guardadas en: {filepath}")
-    print(f"✓ Total combinaciones 'Very High': {len(rows)}")
+    print(f"✓ Total combinaciones 'Very High' + 'High': {len(rows)}")
     print("=" * 70)
 
     return filepath
