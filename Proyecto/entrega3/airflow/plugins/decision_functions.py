@@ -252,8 +252,8 @@ def prepare_data(data_path):
 
     # Configuración
     np.random.seed(42)  # Para reproducibilidad
-    n_samples_per_customer_week = 2  # Productos no comprados a muestrear por cliente-semana
-    sample_weeks_count = 5  # Solo muestrear para las últimas N semanas (para controlar tamaño)
+    n_samples_per_customer_week = 1  # Productos no comprados a muestrear por cliente-semana
+    sample_weeks_count = 3  # Solo muestrear para las últimas N semanas
 
     # Obtener información única de productos y clientes
     product_info_df = weekly_data[['product_id', 'brand', 'sub_category', 'segment', 'package', 'size']].drop_duplicates()
@@ -664,21 +664,20 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
 
     # Función objetivo para Optuna
     def objective(trial):
-        # Espacio de búsqueda reducido y más enfocado
+        # Espacio de búsqueda de hiperparámetros
         params = {
-            "n_neighbors": trial.suggest_int("n_neighbors", 5, 30),
+            "n_neighbors": trial.suggest_int("n_neighbors", 10, 50),
             "weights": trial.suggest_categorical("weights", ["uniform", "distance"]),
-            "p": trial.suggest_int("p", 1, 2),      # 1=Manhattan, 2=Euclid
-            "leaf_size": trial.suggest_int("leaf_size", 20, 40),
-            "algorithm": trial.suggest_categorical("algorithm", ["ball_tree", "kd_tree"])
+            "p": trial.suggest_int("p", 1, 2),      # 1=Manhattan, 2=Euclidean
+            "leaf_size": trial.suggest_int("leaf_size", 10, 50),
+            "algorithm": trial.suggest_categorical("algorithm", ["ball_tree", "kd_tree", "brute"])
         }
 
         # Nombre interpretable para el run
         run_name = f"KNN_nn{params['n_neighbors']}_w{params['weights']}_p{params['p']}"
 
-        # Registrar en MLFlow (reducido: solo params y métrica, sin modelo)
+        # Registrar en MLFlow
         with mlflow.start_run(run_name=run_name):
-            # Añadir tags descriptivos para identificación
             mlflow.set_tag("trial_type", "hyperparameter_optimization")
             mlflow.set_tag("execution_date", execution_date)
             mlflow.set_tag("model_type", "KNeighborsClassifier")
@@ -690,15 +689,28 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
             clf = KNeighborsClassifier(**params)
             clf.fit(X_train, y_train)
 
-            # Métricas en validación
+            # Calcular F1 para la clase "Very High" específicamente (lo que más importa)
             y_pred_val = clf.predict(X_val)
-            f1 = f1_score(y_val, y_pred_val, average="macro")
+            f1_per_class = f1_score(y_val, y_pred_val, average=None, labels=['Very Low', 'Low', 'Medium', 'High', 'Very High'])
+            f1_very_high = f1_per_class[-1]  # Última clase: Very High
 
-            # Registrar en MLflow (sin guardar modelo para ahorrar tiempo)
+            # También calcular F1 macro para referencia
+            f1_macro = f1_score(y_val, y_pred_val, average="macro")
+
+            # Penalización por complejidad: favorecer modelos con más vecinos (menos overfitting)
+            # Normalizar n_neighbors a rango [0, 1] donde 1 = más vecinos = menos complejo
+            complexity_penalty = (params['n_neighbors'] - 10) / (50 - 10) * 0.02  # Penalización máxima de 0.02
+            f1_penalized = f1_very_high + complexity_penalty
+
+            # Registrar en MLflow
             mlflow.log_params(params)
-            mlflow.log_metric("valid_f1", f1)
+            mlflow.log_metric("valid_f1_very_high", f1_very_high)
+            mlflow.log_metric("valid_f1_macro", f1_macro)
+            mlflow.log_metric("valid_f1_penalized", f1_penalized)
+            mlflow.log_metric("complexity_penalty", complexity_penalty)
 
-        return f1
+        # OPTIMIZAR para F1 "Very High" con penalización por complejidad
+        return f1_penalized
 
     # Ejecutar optimización con pruner para detener trials no prometedores
     study = optuna.create_study(
@@ -719,9 +731,9 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
         mlflow.set_tag("stage", "optimization_summary")
         mlflow.set_tag("mlflow.note.content",
                       f"Best hyperparameters from {n_trials} trials. "
-                      f"Best F1-score: {study.best_value:.4f}")
+                      f"Best F1-score (Very High class): {study.best_value:.4f}")
         mlflow.log_params(best_params)
-        mlflow.log_metric("best_f1", study.best_value)
+        mlflow.log_metric("best_f1_very_high", study.best_value)
         mlflow.log_metric("n_trials", n_trials)
 
     # Guardar mejores parámetros en archivo JSON
@@ -730,7 +742,7 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
     # Guardar metadata de optimización
     metadata = {
         'best_params': best_params,
-        'best_f1_score': study.best_value,
+        'best_f1_very_high_score': study.best_value,
         'optimization_date': execution_date,
         'n_trials': n_trials,
         'weeks_since_last_optimization': 0
@@ -740,12 +752,12 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
         json.dump(metadata, f, indent=2)
 
     print(f"Hiperparámetros óptimos guardados en {params_file}")
-    print(f"Mejor F1-score: {study.best_value:.4f}")
+    print(f"Mejor F1-score (Very High): {study.best_value:.4f}")
 
     return best_params
 
 # ====== Evaluación e interpretación ======
-def evaluate_and_interpret_model(base_path, target_column='priority', model_name='product_priority_model', n_shap_samples=100, **context):
+def evaluate_and_interpret_model(base_path, target_column='priority', model_name='product_priority_model', n_shap_samples=30, **context):
     """Evalúa el modelo en el conjunto de test y registra métricas"""
     from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
     import shap
@@ -834,7 +846,7 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
             X_sample = X_test.sample(min(n_shap_samples, len(X_test)), random_state=42)
 
             # Crear background dataset pequeño para KernelExplainer
-            background_size = min(50, len(X_train))
+            background_size = min(20, len(X_train))
             X_background = shap.sample(X_train, background_size, random_state=42)
 
             # Configurar explainer para KNN
@@ -844,8 +856,8 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
                 link="identity"
             )
 
-            # Calcular SHAP values con menos evaluaciones para optimizar tiempo
-            shap_values = explainer.shap_values(X_sample, nsamples=100, silent=True)
+            # Calcular SHAP values
+            shap_values = explainer.shap_values(X_sample, nsamples=50, silent=True)
 
             # Generar summary plot
             plt.figure(figsize=(12, 8))
