@@ -1,13 +1,13 @@
 {
   "best_params": {
-    "n_neighbors": 50,
+    "n_neighbors": 49,
     "weights": "distance",
     "p": 1,
-    "leaf_size": 39,
-    "algorithm": "brute"
+    "leaf_size": 29,
+    "algorithm": "ball_tree"
   },
-  "best_f1_high_priorities_score": 0.4155418861012617,
-  "optimization_date": "2024-12-31",
+  "best_f1_high_priorities_score": 0.4084366564329886,
+  "optimization_date": "2025-01-12",
   "n_trials": 30,
-  "weeks_since_last_optimization": 1
+  "weeks_since_last_optimization": 0
 }

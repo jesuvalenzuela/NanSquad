@@ -162,7 +162,7 @@ with DAG(
         op_kwargs={
             'base_path': BASE_PATH,
             'target_column': 'priority',
-            'n_trials': 30,  # Reducido de 50 a 30
+            'n_trials': 30,
             'model_name': MODEL_NAME
         }
     )
@@ -174,7 +174,7 @@ with DAG(
         op_kwargs={
             'base_path': BASE_PATH,
             'target_column': 'priority',
-            'n_shap_samples': 30,  # Reducido drásticamente de 500 a 30 para evitar tiempos excesivos en Airflow
+            'n_shap_samples': 30,
             'model_name': MODEL_NAME
         },
         trigger_rule='none_failed'  # Se ejecuta después de cualquiera de las dos ramas

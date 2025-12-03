@@ -1,0 +1,22 @@
+artifact_path: file:///Users/jesu/Desktop/Magister/LabProgramacionCientifica/NanSquad/Proyecto/entrega3/airflow/mlruns/873874598639661265/models/m-2119ffbc8bbe4431b8f4a1ca52e40012/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.10.13
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.3.2
+mlflow_version: 3.6.0
+model_id: m-2119ffbc8bbe4431b8f4a1ca52e40012
+model_size_bytes: 70953322
+model_uuid: m-2119ffbc8bbe4431b8f4a1ca52e40012
+prompts: null
+run_id: dc34202e26794c9895a4128f6291c738
+utc_time_created: '2025-12-03 17:03:05.945368'

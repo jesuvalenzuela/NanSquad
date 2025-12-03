@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jesu/Desktop/Magister/LabProgramacionCientifica/NanSquad/Proyecto/entrega3/airflow/mlruns/260220275425045743/d79b584316e04b16bbf08e4ccd8f5843/artifacts
+end_time: 1764781383177
+entry_point_name: ''
+experiment_id: '260220275425045743'
+lifecycle_stage: active
+run_id: d79b584316e04b16bbf08e4ccd8f5843
+run_name: BEST_PARAMS_2025-01-12
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1764781383167
+status: 3
+tags: []
+user_id: jesu
