@@ -19,3 +19,8 @@ Proyecto/entrega3/airflow/airflow.db
 Proyecto/entrega3/airflow/airflow.db-shm
 Proyecto/entrega3/airflow/airflow.db-wal
 Proyecto/entrega3/airflow/simple_auth_manager_passwords.json.generated
+Proyecto/entrega3/airflow/logs/dag_processor/2025-12-03/example_dags/
+Proyecto/entrega3/airflow/airflow-scheduler.err
+Proyecto/entrega3/airflow/airflow-scheduler.log
+Proyecto/entrega3/airflow/airflow-scheduler.out
+Proyecto/entrega3/airflow/airflow-scheduler.pid
