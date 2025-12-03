@@ -1,0 +1,15 @@
+creation_timestamp: 1764769415283
+current_stage: None
+deployment_job_state: null
+description: null
+last_updated_timestamp: 1764769415283
+model_id: m-ff0975aa6b7247acb97860cfe231dfc4
+name: product_priority_model
+run_id: 4e778a1eb19b4e3f89d4fd8b49f71c0a
+run_link: null
+source: models:/m-ff0975aa6b7247acb97860cfe231dfc4
+status: READY
+status_message: null
+storage_location: file:///Users/jesu/Desktop/Magister/LabProgramacionCientifica/NanSquad/Proyecto/entrega3/airflow/mlruns/122514783594918439/models/m-ff0975aa6b7247acb97860cfe231dfc4/artifacts
+user_id: null
+version: 3
