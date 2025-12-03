@@ -231,8 +231,8 @@ with DAG(
     decidir_optimizacion >> [optimizar, cargar_params]
 
     # Ambas ramas convergen en evaluación y entrenamiento final
-    cross_downstream([optimizar, cargar_params], [evaluar_interpretar, entrenar_modelo_final])
-    [evaluar_interpretar, entrenar_modelo_final] >> generar_predicciones >> end
+    cross_downstream([optimizar, cargar_params], [evaluar_interpretar, entrenar_modelo_final, generar_predicciones])
+    [evaluar_interpretar, entrenar_modelo_final, generar_predicciones] >> end
 
     # Si se toma la rama "no_entrenar", se pasa directo a la tarea final (sin generar predicciones)
     no_entrenar >> end
