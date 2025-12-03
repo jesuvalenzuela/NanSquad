@@ -174,7 +174,7 @@ with DAG(
         op_kwargs={
             'base_path': BASE_PATH,
             'target_column': 'priority',
-            'n_shap_samples':500,
+            'n_shap_samples': 30,  # Reducido drásticamente de 500 a 30 para evitar tiempos excesivos en Airflow
             'model_name': MODEL_NAME
         },
         trigger_rule='none_failed'  # Se ejecuta después de cualquiera de las dos ramas
@@ -231,8 +231,11 @@ with DAG(
     decidir_optimizacion >> [optimizar, cargar_params]
 
     # Ambas ramas convergen en evaluación y entrenamiento final
-    cross_downstream([optimizar, cargar_params], [evaluar_interpretar, entrenar_modelo_final, generar_predicciones])
-    [evaluar_interpretar, entrenar_modelo_final, generar_predicciones] >> end
+    cross_downstream([optimizar, cargar_params], [evaluar_interpretar, entrenar_modelo_final])
+
+    # Generar predicciones apenas termine entrenar_modelo_final (en paralelo con evaluar_interpretar)
+    entrenar_modelo_final >> generar_predicciones
+    [evaluar_interpretar, generar_predicciones] >> end
 
     # Si se toma la rama "no_entrenar", se pasa directo a la tarea final (sin generar predicciones)
     no_entrenar >> end
