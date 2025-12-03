@@ -826,7 +826,7 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
     mlflow.set_tracking_uri(f"file://{mlruns_path}")
     mlflow.set_experiment("Model_Evaluation_and_Interpretation")
 
-    # Usar fecha de los datos, no fecha de ejecución
+    # Usar fecha de los datos para identificar el run
     data_path = os.path.join(base_path, 'data')
     data_date = get_latest_data_date(data_path)
     with mlflow.start_run(run_name=f"Evaluation_{data_date}"):
@@ -875,7 +875,7 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
         # Guardar classification report
         report = classification_report(y_test, y_pred_test, output_dict=True)
         report_df = pd.DataFrame(report).transpose()
-        report_path = os.path.join(base_path, 'temp_classification_report.csv')
+        report_path = os.path.join(base_path, 'classification_report.csv')
         report_df.to_csv(report_path)
         mlflow.log_artifact(report_path)
         os.remove(report_path)
@@ -887,7 +887,7 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
             X_sample = X_test.sample(min(n_shap_samples, len(X_test)), random_state=42)
 
             # Crear background dataset pequeño para KernelExplainer
-            background_size = min(20, len(X_train))
+            background_size = min(50, len(X_train))
             X_background = shap.sample(X_train, background_size, random_state=42)
 
             # Configurar explainer para KNN
@@ -898,13 +898,12 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
             )
 
             # Calcular SHAP values
-            shap_values = explainer.shap_values(X_sample, nsamples=50, silent=True)
+            shap_values = explainer(X_sample)
 
             # Generar summary plot
             plt.figure(figsize=(12, 8))
-            shap_values_plot = shap_values[0] if isinstance(shap_values, list) else shap_values
-            shap.summary_plot(shap_values_plot, X_sample, show=False, max_display=15)
-            shap_path = os.path.join(base_path, 'temp_shap_summary.png')
+            shap.summary_plot(shap_values, X_sample, show=False, max_display=15)
+            shap_path = os.path.join(base_path, 'shap_summary.png')
             plt.savefig(shap_path, dpi=120, bbox_inches='tight')
             plt.close()
 
