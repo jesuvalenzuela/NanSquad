@@ -138,6 +138,27 @@ def read_raw_parquet_files(data_path):
 
     return dataframes
 
+def get_latest_data_date(data_path):
+    """
+    Lee la fecha más reciente de los datos desde el archivo de metadata.
+
+    Args:
+        data_path: Path base de datos (AIRFLOW_HOME/data)
+
+    Returns:
+        str: Fecha en formato 'YYYY-MM-DD'
+    """
+    import json
+    metadata_path = os.path.join(data_path, 'transformed', 'data_metadata.json')
+
+    if os.path.exists(metadata_path):
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+        return metadata['latest_data_date']
+    else:
+        # Fallback: si no existe metadata, usar fecha actual
+        return pd.Timestamp.now().strftime('%Y-%m-%d')
+
 def assign_priority(df, client_col='customer_id', items_col='weekly_items'):
     """
     Asigna prioridad de forma vectorizada usando cuantiles por cliente.
@@ -188,6 +209,18 @@ def prepare_data(data_path):
     # Leer datos
     transformed_path = os.path.join(data_path, 'transformed')
     transacciones_0, clientes_0, productos_0 = read_raw_parquet_files(data_path)
+
+    # Guardar metadata: fecha más reciente en los datos históricos
+    latest_date = pd.to_datetime(transacciones_0['purchase_date']).max()
+    metadata = {
+        'latest_data_date': latest_date.strftime('%Y-%m-%d'),
+        'last_updated': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    import json
+    metadata_path = os.path.join(transformed_path, 'data_metadata.json')
+    with open(metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+    print(f"Metadata guardada: fecha más reciente en datos = {metadata['latest_data_date']}")
 
     # 1. Eliminar duplicados
     transacciones = transacciones_0.drop_duplicates()
@@ -657,9 +690,9 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
     X_train, y_train = train_df.drop(columns=[target_column]), train_df[target_column]
     X_val, y_val = val_df.drop(columns=[target_column]), val_df[target_column]
 
-    # Configurar experimento MLFlow
-    execution_date = context['ds']
-    experiment_name = f"{model_name}_optimization_{execution_date}"
+    # Configurar experimento MLFlow - usar fecha de los datos, no fecha de ejecución
+    data_date = get_latest_data_date(data_path)
+    experiment_name = f"{model_name}_optimization_{data_date}"
     mlflow.set_experiment(experiment_name)
 
     # Función objetivo para Optuna
@@ -679,7 +712,7 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
         # Registrar en MLFlow
         with mlflow.start_run(run_name=run_name):
             mlflow.set_tag("trial_type", "hyperparameter_optimization")
-            mlflow.set_tag("execution_date", execution_date)
+            mlflow.set_tag("data_date", data_date)
             mlflow.set_tag("model_type", "KNeighborsClassifier")
             mlflow.set_tag("stage", "optimization")
             mlflow.set_tag("mlflow.note.content",
@@ -730,9 +763,9 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
     best_params = study.best_params
 
     # Registrar un run resumen con los mejores resultados de la optimización
-    with mlflow.start_run(run_name=f"BEST_PARAMS_{execution_date}"):
+    with mlflow.start_run(run_name=f"BEST_PARAMS_{data_date}"):
         mlflow.set_tag("trial_type", "optimization_summary")
-        mlflow.set_tag("execution_date", execution_date)
+        mlflow.set_tag("data_date", data_date)
         mlflow.set_tag("model_type", "KNeighborsClassifier")
         mlflow.set_tag("stage", "optimization_summary")
         mlflow.set_tag("mlflow.note.content",
@@ -749,7 +782,7 @@ def optimize_model(base_path, target_column='priority', n_trials=30, model_name=
     metadata = {
         'best_params': best_params,
         'best_f1_high_priorities_score': study.best_value,
-        'optimization_date': execution_date,
+        'optimization_date': data_date,
         'n_trials': n_trials,
         'weeks_since_last_optimization': 0
     }
@@ -793,16 +826,18 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
     mlflow.set_tracking_uri(f"file://{mlruns_path}")
     mlflow.set_experiment("Model_Evaluation_and_Interpretation")
 
-    execution_date = context['ds']
-    with mlflow.start_run(run_name=f"Evaluation_{execution_date}"):
+    # Usar fecha de los datos, no fecha de ejecución
+    data_path = os.path.join(base_path, 'data')
+    data_date = get_latest_data_date(data_path)
+    with mlflow.start_run(run_name=f"Evaluation_{data_date}"):
         # Añadir tags descriptivos para identificación
         mlflow.set_tag("trial_type", "model_evaluation")
-        mlflow.set_tag("execution_date", execution_date)
+        mlflow.set_tag("data_date", data_date)
         mlflow.set_tag("model_type", "KNeighborsClassifier")
         mlflow.set_tag("stage", "evaluation")
         mlflow.set_tag("dataset", "train_set_only")
         mlflow.set_tag("mlflow.note.content",
-                      f"Model evaluation with SHAP interpretation on date {execution_date}. "
+                      f"Model evaluation with SHAP interpretation on data date {data_date}. "
                       f"Training on train set, evaluating on train/val/test sets.")
 
         # Entrenar con mejores parámetros
@@ -921,16 +956,18 @@ def train_final_model(base_path, target_column='priority', model_name='product_p
     experiment_name = "Final_Model"
     mlflow.set_experiment(experiment_name)
 
-    execution_date = context['ds']
-    with mlflow.start_run(run_name=f"Production_Model_{execution_date}"):
+    # Usar fecha de los datos, no fecha de ejecución
+    data_path = os.path.join(base_path, 'data')
+    data_date = get_latest_data_date(data_path)
+    with mlflow.start_run(run_name=f"Production_Model_{data_date}"):
         # Añadir tags descriptivos para identificación
         mlflow.set_tag("trial_type", "production_model")
-        mlflow.set_tag("execution_date", execution_date)
+        mlflow.set_tag("data_date", data_date)
         mlflow.set_tag("model_type", "KNeighborsClassifier")
         mlflow.set_tag("stage", "production")
         mlflow.set_tag("dataset", "train_val_test_combined")
         mlflow.set_tag("mlflow.note.content",
-                      f"Final production model trained on all data (train+val+test) on date {execution_date}. "
+                      f"Final production model trained on all data (train+val+test) with data date {data_date}. "
                       f"Ready for deployment.")
 
         final_model = KNeighborsClassifier(**best_params)
