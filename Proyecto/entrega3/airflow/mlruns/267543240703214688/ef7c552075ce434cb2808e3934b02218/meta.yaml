@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jesu/Desktop/Magister/LabProgramacionCientifica/NanSquad/Proyecto/entrega3/airflow/mlruns/267543240703214688/ef7c552075ce434cb2808e3934b02218/artifacts
+end_time: 1764774768033
+entry_point_name: ''
+experiment_id: '267543240703214688'
+lifecycle_stage: active
+run_id: ef7c552075ce434cb2808e3934b02218
+run_name: KNN_nn44_wdistance_p1
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1764774754000
+status: 3
+tags: []
+user_id: jesu
