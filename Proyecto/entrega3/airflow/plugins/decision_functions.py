@@ -887,10 +887,12 @@ def evaluate_and_interpret_model(base_path, target_column='priority', model_name
             X_sample = X_test.sample(min(n_shap_samples, len(X_test)), random_state=42)
 
             # Crear background dataset pequeño para KernelExplainer
-            background_size = min(50, len(X_train))
+            background_size = min(30, len(X_train))
             X_background = shap.sample(X_train, background_size, random_state=42)
 
             # Configurar explainer para KNN
+            import warnings
+            warnings.filterwarnings('ignore')
             explainer = shap.KernelExplainer(
                 best_model.predict_proba,
                 X_background,
