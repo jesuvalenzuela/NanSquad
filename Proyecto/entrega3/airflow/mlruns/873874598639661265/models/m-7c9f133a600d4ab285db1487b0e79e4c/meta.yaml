@@ -1,0 +1,10 @@
+artifact_location: file:///Users/jesu/Desktop/Magister/LabProgramacionCientifica/NanSquad/Proyecto/entrega3/airflow/mlruns/873874598639661265/models/m-7c9f133a600d4ab285db1487b0e79e4c/artifacts
+creation_timestamp: 1764779634961
+experiment_id: '873874598639661265'
+last_updated_timestamp: 1764779637384
+model_id: m-7c9f133a600d4ab285db1487b0e79e4c
+model_type: null
+name: model_full_data
+source_run_id: c5e24a4169744a7fae860c980d7e54c7
+status: 2
+status_message: null
